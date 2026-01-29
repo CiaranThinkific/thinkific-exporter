@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Bulk Role Update</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241; --thinkific:#24111f }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input, textarea, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink) }
+    textarea { min-height:84px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .row { display:flex; gap:12px; align-items:flex-end }
+    .row > * { flex:1 }
+    .btns { display:flex; gap:12px; margin-top:16px }
+    button { flex:1; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button.danger { background:#ef4444; color:#fff; border:1px solid rgba(239,68,68,.6) }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:200px; overflow:auto; white-space:pre-wrap }
+    .instructions { margin-top:16px; background:rgba(15,23,42,.55); border:1px solid #2b3650; border-radius:14px; padding:14px 16px }
+    .instructions h2 { margin:0 0 8px; font-size:1.05rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .instructions ol { margin:0; padding-left:20px; color:#cbd5e1 }
+    .instructions li { margin:6px 0 }
+    .table-resize { margin-top:16px; border:1px solid #263249; border-radius:14px; background:#0a1220; overflow:hidden; min-height:240px; width:1200px; padding:0 20px 20px 0; position:relative }
+    .table-resize-handle { position:absolute; right:6px; bottom:6px; width:18px; height:18px; cursor:se-resize; }
+    .table-resize-handle::after { content:""; position:absolute; right:2px; bottom:2px; width:12px; height:12px; border-right:2px solid rgba(203,213,225,.6); border-bottom:2px solid rgba(203,213,225,.6); }
+    .table-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; margin:0 -20px -20px 0 }
+    .table-toolbar { display:flex; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #263249; background:rgba(15,23,42,.6) }
+    .table-toolbar .muted { font-size:.85rem }
+    table { width:100%; border-collapse:collapse; font-size:.9rem; table-layout:auto }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2a3e; vertical-align:top; white-space:nowrap }
+    th { background:#0b1324; position:sticky; top:0; z-index:1; text-align:left }
+    .table-scroll { flex:1; min-height:200px; overflow:auto }
+    .empty { padding:14px; color:var(--muted); font-size:.9rem }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+            <div class="brand-tag">Bulk Role Update</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Bulk Role Update</h1>
+      <div class="muted">Upload a CSV to update Thinkific user roles. Required headers: <strong>email</strong>, <strong>roles</strong>. Extra columns are ignored.</div>
+      <div class="instructions" aria-label="Update instructions">
+        <h2>Instructions</h2>
+        <ol>
+          <li>Add your API Token: This allows the tool to access your Thinkific account.</li>
+          <li>Generate and fill out the template.</li>
+          <li>Upload a small test CSV to confirm role updates.</li>
+          <li>Upload the full CSV to update the rest.</li>
+        </ol>
+      </div>
+      <div class="instructions" aria-label="Update tips">
+        <h2>Tips</h2>
+        <ol>
+          <li>Role values are normalized to lowercase before updating Thinkific.</li>
+          <li>Each row updates a single role for a user email.</li>
+          <li>If your template has extra columns, they are ignored.</li>
+        </ol>
+      </div>
+
+      <label>Bearer Token (saved on this device)
+        <div class="token-save">
+          <input id="token" value="add access token here!">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+
+      <label>CSV File
+        <input id="csv-file" type="file" accept=".csv,text/csv">
+      </label>
+
+      <div class="btns">
+        <button id="start">Update Roles</button>
+        <button id="stop" class="danger" disabled>Stop Update</button>
+        <button id="download-template" class="secondary">Generate CSV Template</button>
+      </div>
+
+      <div class="progress"><div id="bar" class="bar indeterminate"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <div class="table-resize" id="table-resize">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="muted" id="table-meta">No rows loaded.</div>
+            <div style="flex:1"></div>
+          </div>
+          <div class="table-scroll">
+            <table id="results-table" aria-live="polite"></table>
+          </div>
+          <div id="table-empty" class="empty">Upload a CSV to see parsed rows.</div>
+        </div>
+        <div class="table-resize-handle" id="table-resize-handle" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => ( $("#log").textContent += ( $("#log").textContent ? "\n" : "" ) + m, $("#log").scrollTop = $("#log").scrollHeight );
+const setStatus = (t) => $("#status").textContent = t;
+const setBar = (pct) => { const b = $("#bar"); b.classList.remove("indeterminate"); b.style.width = Math.max(0,Math.min(100,pct)) + "%"; };
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const API_ENDPOINT = "https://api.thinkific.com/api/public/v1/users";
+const TOKEN_KEY = "thinkific-bulk-role-token";
+
+const BASE_COLUMNS = [
+  { id: "email", label: "Email", get: r => r.email },
+  { id: "role", label: "Roles", get: r => r.role },
+  { id: "user_id", label: "User ID", get: r => r.user_id || "" }
+];
+const STATUS_COLUMNS = [
+  { id: "status", label: "Status", get: r => r.status }
+];
+let COLUMN_DEFS = [...BASE_COLUMNS, ...STATUS_COLUMNS];
+
+let tableRows = [];
+let stopRequested = false;
+let remainingRows = [];
+let canDownloadRemaining = false;
+let lastFileKey = null;
+let isImporting = false;
+
+const csvEscape = (v) => {
+  const s = String(v || "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+
+const getFileKey = (file) => {
+  if (!file) return null;
+  return [file.name, file.size, file.lastModified].join("|");
+};
+
+const hasRemainingRows = () => tableRows.some(r => r.status === "Pending" || r.status === "Stopped");
+const hasProcessedRows = () => tableRows.some(r => r.status && r.status !== "Pending" && r.status !== "Stopped");
+
+const updateStartLabel = () => {
+  if (isImporting) {
+    $("#start").textContent = "Updating…";
+    return;
+  }
+  const file = $("#csv-file").files[0];
+  const fileKey = getFileKey(file);
+  if (file && fileKey === lastFileKey && tableRows.length && hasRemainingRows() && hasProcessedRows()) {
+    $("#start").textContent = "Resume Update";
+  } else {
+    $("#start").textContent = "Update Roles";
+  }
+};
+
+function csvParse(text) {
+  const rows = [];
+  let cur = "";
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQuotes = false; continue; }
+      cur += ch;
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === ',') { row.push(cur); cur = ""; continue; }
+    if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
+    if (ch === '\r') { continue; }
+    cur += ch;
+  }
+  row.push(cur);
+  rows.push(row);
+  return rows;
+}
+
+function normalizeHeader(s) {
+  return String(s || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/<[^>]*>/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function normalizeRole(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function mapHeaders(headers) {
+  const map = {};
+  const norm = headers.map(h => normalizeHeader(h));
+  const matches = {
+    email: ["email", "emailaddress", "e_mail", "email_address"],
+    role: ["role", "roles", "user_role", "user_roles"]
+  };
+  for (const key of Object.keys(matches)) {
+    const options = new Set(matches[key]);
+    const idx = norm.findIndex(n => options.has(n));
+    if (idx !== -1) map[key] = idx;
+  }
+  return map;
+}
+
+function renderTable() {
+  const table = $("#results-table");
+  const empty = $("#table-empty");
+  const meta = $("#table-meta");
+  table.innerHTML = "";
+
+  if (!tableRows.length) {
+    empty.style.display = "block";
+    meta.textContent = "No rows loaded.";
+    return;
+  }
+
+  meta.textContent = tableRows.length + " rows";
+  empty.style.display = "none";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const col of COLUMN_DEFS) {
+    const th = document.createElement("th");
+    th.textContent = col.label;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of tableRows) {
+    const tr = document.createElement("tr");
+    for (const col of COLUMN_DEFS) {
+      const td = document.createElement("td");
+      td.textContent = col.get(row) || "";
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+}
+
+async function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
+
+function extractUsersFromResponse(json) {
+  if (!json) return [];
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json.items)) return json.items;
+  if (Array.isArray(json.users)) return json.users;
+  if (json.data) {
+    if (Array.isArray(json.data)) return json.data;
+    if (Array.isArray(json.data.items)) return json.data.items;
+    if (Array.isArray(json.data.users)) return json.data.users;
+    if (json.data.user) return [json.data.user];
+  }
+  if (json.user) return [json.user];
+  return [];
+}
+
+async function requestJson(url, token, attempt = 1) {
+  const resp = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/json"
+    }
+  });
+
+  if (resp.status === 429 && attempt <= 3) {
+    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
+    await sleep(waitMs);
+    return requestJson(url, token, attempt + 1);
+  }
+
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return json;
+}
+
+async function getUserByEmail(token, email) {
+  const targets = [
+    API_ENDPOINT + "?query[email]=" + encodeURIComponent(email),
+    API_ENDPOINT + "?email=" + encodeURIComponent(email)
+  ];
+  for (const url of targets) {
+    const json = await requestJson(url, token);
+    const users = extractUsersFromResponse(json);
+    if (!users.length) continue;
+    const match = users.find(u => String(u.email || "").trim().toLowerCase() === email.toLowerCase());
+    if (match) return match;
+    if (users.length === 1) return users[0];
+  }
+  return null;
+}
+
+async function updateUserRole(token, userId, role, attempt = 1) {
+  const resp = await fetch(API_ENDPOINT + "/" + encodeURIComponent(userId), {
+    method: "PUT",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ roles: [role] })
+  });
+
+  if (resp.status === 429 && attempt <= 3) {
+    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
+    await sleep(waitMs);
+    return updateUserRole(token, userId, role, attempt + 1);
+  }
+
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return json;
+}
+
+async function loadCsvPreview(file) {
+  const text = await readFileAsText(file);
+  const rows = csvParse(text).filter(r => r.some(cell => String(cell || "").trim() !== ""));
+  if (!rows.length) throw new Error("CSV appears empty.");
+
+  const headers = rows[0];
+  const map = mapHeaders(headers);
+  if (map.email === undefined || map.role === undefined) {
+    throw new Error("CSV headers must include email and roles.");
+  }
+
+  const data = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const email = String(row[map.email] || "").trim();
+    const role = normalizeRole(row[map.role]);
+    if (!email && !role) continue;
+    data.push({
+      email,
+      role,
+      user_id: "",
+      status: "Pending"
+    });
+  }
+
+  if (!data.length) throw new Error("No user rows found after headers.");
+  tableRows = data;
+  renderTable();
+  return data;
+}
+
+async function updateRoles() {
+  const token = $("#token").value.trim();
+  const file = $("#csv-file").files[0];
+  if (!token) { alert("Bearer token is required."); return; }
+  if (!file) { alert("Select a CSV file to update."); return; }
+
+  isImporting = true;
+  stopRequested = false;
+  remainingRows = [];
+  canDownloadRemaining = false;
+  $("#start").disabled = true;
+  updateStartLabel();
+  $("#stop").disabled = false;
+  $("#stop").textContent = "Stop Update";
+  $("#log").textContent = "";
+  setStatus("Parsing CSV…");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  let rows;
+  try {
+    const fileKey = getFileKey(file);
+    if (fileKey && fileKey === lastFileKey && tableRows.length) {
+      rows = tableRows;
+      setStatus("Resuming update…");
+      log("Resuming update with existing rows.");
+    } else {
+      rows = await loadCsvPreview(file);
+      lastFileKey = fileKey;
+      setStatus("Updating " + rows.length + " users…");
+      log("Loaded " + rows.length + " rows from CSV.");
+    }
+  } catch (err) {
+    setStatus("Error ⚠ " + err.message);
+    log("Error: " + err.message);
+    isImporting = false;
+    $("#start").disabled = false;
+    $("#stop").disabled = true;
+    updateStartLabel();
+    return;
+  }
+
+  let success = 0;
+  let failed = 0;
+  const remaining = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+  const totalToProcess = remaining.length;
+  let processed = 0;
+  if (!totalToProcess) {
+    setStatus("Nothing to update. All rows already processed.");
+    log("No remaining rows to update.");
+    isImporting = false;
+    $("#start").disabled = false;
+    $("#stop").disabled = true;
+    updateStartLabel();
+    return;
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!(row.status === "Pending" || row.status === "Stopped")) {
+      continue;
+    }
+    if (stopRequested) {
+      for (let j = i; j < rows.length; j++) {
+        if (rows[j].status === "Pending") rows[j].status = "Stopped";
+      }
+      renderTable();
+      remainingRows = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+      break;
+    }
+    processed++;
+    setStatus("Updating user " + processed + " of " + totalToProcess + "…");
+    setBar(Math.round(((processed - 1) / totalToProcess) * 100));
+
+    if (!row.email) {
+      row.status = "Skipped";
+      failed++;
+      renderTable();
+      log("Row " + (i + 1) + ": missing email, skipped.");
+      continue;
+    }
+    if (!row.role) {
+      row.status = "Skipped";
+      failed++;
+      renderTable();
+      log("Row " + (i + 1) + ": missing role, skipped.");
+      continue;
+    }
+
+    try {
+      const user = await getUserByEmail(token, row.email);
+      if (!user) {
+        throw new Error("User not found for email " + row.email);
+      }
+      const userId = user.id || user.user_id || user.userId || null;
+      if (!userId) {
+        throw new Error("User found but no id returned for " + row.email);
+      }
+      row.user_id = String(userId);
+      await updateUserRole(token, userId, row.role);
+      row.status = "Updated";
+      success++;
+      log("Row " + (i + 1) + ": updated " + row.email + " to role " + row.role + ".");
+    } catch (err) {
+      row.status = "Error";
+      failed++;
+      const details = err && err.body ? " | " + JSON.stringify(err.body) : "";
+      log("Row " + (i + 1) + ": error updating " + row.email + " - " + err.message + details);
+    }
+    renderTable();
+    await sleep(1000);
+  }
+
+  setBar(100);
+  if (stopRequested) {
+    setStatus("Stopped by user. Updated: " + success + ", Failed: " + failed + ".");
+    log("Update stopped. Updated: " + success + ", Failed: " + failed + ".");
+    if (remainingRows.length) {
+      $("#stop").textContent = "Download Remaining CSV";
+      $("#stop").disabled = false;
+      canDownloadRemaining = true;
+      log("Remaining rows ready for download: " + remainingRows.length + ".");
+    } else {
+      $("#stop").disabled = true;
+    }
+  } else {
+    setStatus("Done ✔ " + success + " updated, " + failed + " failed.");
+    log("Update complete. Updated: " + success + ", Failed: " + failed + ".");
+    $("#stop").disabled = true;
+  }
+  isImporting = false;
+  $("#start").disabled = false;
+  updateStartLabel();
+}
+
+const saved = localStorage.getItem(TOKEN_KEY);
+if (saved) {
+  $("#token").value = saved;
+  log("Loaded saved API key from this device.");
+}
+$("#save-token").addEventListener("click", () => {
+  const token = $("#token").value.trim();
+  if (!token) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, token);
+  log("API key saved to this device.");
+});
+
+async function downloadTemplate() {
+  const headers = ["email", "roles"];
+  const blob = new Blob([headers.map(csvEscape).join(",") + "\n"], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-role-update-template.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setStatus("Template downloaded ✔");
+  setBar(100);
+}
+
+function downloadRemainingCsv() {
+  if (!remainingRows.length) {
+    alert("No remaining rows to download.");
+    return;
+  }
+  const cols = COLUMN_DEFS.filter(c => c.id !== "status");
+  const headers = cols.map(c => c.label);
+  const lines = [headers.map(csvEscape).join(",")];
+  for (const row of remainingRows) {
+    lines.push(cols.map(c => csvEscape(c.get(row))).join(","));
+  }
+
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-role-update-remaining.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Remaining CSV downloaded (" + remainingRows.length + " rows).");
+}
+
+$("#start").addEventListener("click", updateRoles);
+$("#stop").addEventListener("click", () => {
+  if (canDownloadRemaining) {
+    downloadRemainingCsv();
+    return;
+  }
+  if (stopRequested) return;
+  stopRequested = true;
+  $("#stop").disabled = true;
+  setStatus("Stopping after current request…");
+  log("Stop requested. Finishing current user then stopping.");
+});
+$("#download-template").addEventListener("click", downloadTemplate);
+$("#csv-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    await loadCsvPreview(file);
+    lastFileKey = getFileKey(file);
+    setStatus("Ready to update.");
+    log("CSV parsed. Review rows, then click Update Roles.");
+    updateStartLabel();
+  } catch (err) {
+    setStatus("Error ⚠ " + err.message);
+    log("Error: " + err.message);
+  }
+});
+
+const resizeBox = $("#table-resize");
+const resizeHandle = $("#table-resize-handle");
+if (resizeBox && resizeHandle) {
+  resizeHandle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = resizeBox.getBoundingClientRect().width;
+    const startHeight = resizeBox.getBoundingClientRect().height;
+
+    const onMove = (ev) => {
+      const nextWidth = Math.max(600, startWidth + (ev.clientX - startX));
+      const nextHeight = Math.max(240, startHeight + (ev.clientY - startY));
+      resizeBox.style.width = Math.round(nextWidth) + "px";
+      resizeBox.style.height = Math.round(nextHeight) + "px";
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+</script>
+</body>
+</html>
