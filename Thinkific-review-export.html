@@ -55,6 +55,7 @@
     th .col-label span { font-weight:600 }
     .table-scroll { flex:1; min-height:200px; overflow:auto }
     .empty { padding:14px; color:var(--muted); font-size:.9rem }
+    .hidden { display:none !important }
   </style>
 </head>
 <body>
@@ -80,7 +81,7 @@
         <label>Output File
           <input id="outfile" value="thinkific-review-export.csv">
         </label>
-        <label>REST Delay (ms)
+        <label class="hidden">REST Delay (ms)
           <input id="rest-delay" type="number" min="0" step="50" value="500">
         </label>
       </div>
@@ -289,8 +290,10 @@ const REVIEW_API_ENDPOINT = "https://api.thinkific.com/api/public/v1/course_revi
 const USER_API_ENDPOINT = "https://api.thinkific.com/api/public/v1/users";
 const REVIEW_DETAIL_CONCURRENCY = 4;
 const REST_DELAY_DEFAULT_MS = 500;
+let restDelayEnabled = true;
 
 function getRestDelayMs() {
+  if (!restDelayEnabled) return 0;
   const el = $("#rest-delay");
   const raw = el ? el.value : "";
   const ms = Number(raw);
@@ -826,6 +829,7 @@ async function exportReviewIds() {
   setStatus("Starting…");
   $("#bar").classList.add("indeterminate");
   setBar(0);
+  restDelayEnabled = true;
 
   let courseAfter = null;
   let coursePage = 0;
@@ -923,6 +927,7 @@ async function exportReviewIds() {
       return;
     }
 
+    restDelayEnabled = rows.length >= 60;
     tableRows = rows;
     renderTable();
     log("Fetching review details for " + rows.length + " review IDs…");
