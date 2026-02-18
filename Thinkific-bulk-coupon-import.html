@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Bulk Coupon Import</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241; --thinkific:#24111f }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input, textarea, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink) }
+    input[readonly] { opacity:.85 }
+    textarea { min-height:84px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .row { display:flex; gap:12px; align-items:flex-end }
+    .row > * { flex:1 }
+    .btns { display:flex; gap:12px; margin-top:16px }
+    button { flex:1; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:200px; overflow:auto; white-space:pre-wrap }
+    .meta { margin-top:8px; font-size:.85rem; color:#cbd5e1 }
+    .section-title { margin-top:12px; font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted) }
+    .detail-value { display:block; padding:8px 12px; min-height:20px; border-radius:12px; border:1px solid #1f2a3e; background:rgba(15,23,42,.6); color:var(--ink); cursor:default; user-select:text }
+    .preview { margin-top:12px; border:1px solid #263249; border-radius:12px; background:#0a1220; overflow:hidden }
+    .preview-meta { padding:8px 12px; border-bottom:1px solid #1f2a3e; font-size:.85rem; color:#cbd5e1 }
+    .preview-scroll { max-height:220px; overflow:auto }
+    .preview-table { width:100%; border-collapse:collapse; font-size:.85rem }
+    .preview-table th, .preview-table td { padding:8px 10px; border-bottom:1px solid #1f2a3e; white-space:nowrap; vertical-align:top }
+    .preview-table th { background:#0b1324; position:sticky; top:0; text-align:left }
+    .preview-highlight { background:rgba(242,194,52,.12) }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #263249; font-size:.75rem; color:#cbd5e1 }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Bulk Coupon Import</h1>
+      <div class="muted">Import coupons for a selected promotion.</div>
+      <br>
+      <div class="muted"><h2>Step: 1</h2><p>Generate a Bearer Token in your Thinkific admin and paste it below. This token is saved locally on your device for convenience.</p></div>
+      
+      <label>Bearer Token (saved on this device)
+        <div class="token-save">
+          <input id="token" value="add access token here!">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+      <br>
+      <div class="muted"><h2>Step: 2</h2><p>Load your promotions, select the promotion you want to import coupons for.</p></div>
+      
+      <div class="btns">
+        <button id="load-promotions">Load Promotions</button>
+        <button id="clear-promotions" class="secondary" disabled>Clear</button>
+      </div>
+
+      <div class="row">
+        <label>Promotion Search
+          <input id="promo-search" placeholder="Search promotions by name or ID">
+        </label>
+        <label>Promotion
+          <select id="promo-select" disabled></select>
+        </label>
+      </div>
+
+      <div class="section-title">Promotion Details</div>
+      <div class="row">
+        <label>Name
+          <div id="promo-detail-name" class="detail-value"></div>
+        </label>
+        <label>Discount Type
+          <div id="promo-detail-type" class="detail-value"></div>
+        </label>
+      </div>
+      <div class="row">
+        <label>Amount
+          <div id="promo-detail-amount" class="detail-value"></div>
+        </label>
+        <label>Duration
+          <div id="promo-detail-duration" class="detail-value"></div>
+        </label>
+      </div>
+      <div class="row">
+        <label>Created At
+          <div id="promo-detail-created" class="detail-value"></div>
+        </label>
+      </div>
+      <br>
+      <div class="muted"><h2>Step: 3</h2><p>Upload a CSV file with a column for coupon codes and an optional column for quantity. Map the columns to the appropriate fields, then click "Import Coupons".</p></div>
+      <div class="section-title">Important Considerations:</div>
+      <div class="muted"><strong>Upload restricted to 1000 codes.</strong></div>
+      <div class="muted">Do not import codes to <strong>volume discount</strong> promotions, or promotions labeled "Group Order:"</div>
+      <label>Coupon CSV File
+        <input id="coupon-csv" type="file" accept=".csv,text/csv">
+      </label>
+      <div class="row">
+        <label>Code Column
+          <select id="coupon-code-col" disabled></select>
+        </label>
+        <label>Quantity Column
+          <select id="coupon-qty-col" disabled></select>
+        </label>
+      </div>
+      <div class="preview">
+        <div id="coupon-preview-meta" class="preview-meta">No CSV loaded.</div>
+        <div class="preview-scroll">
+          <table id="coupon-preview-table" class="preview-table"></table>
+        </div>
+      </div>
+      <div class="btns">
+        <button id="import-coupons">Import Coupons</button>
+        <button id="stop-import" class="secondary" disabled>Stop Import</button>
+        <button id="download-failed" class="secondary" disabled>Download Failed Report</button>
+      </div>
+
+      <div id="promo-meta" class="meta">No promotions loaded.</div>
+
+      <div class="progress"><div id="bar" class="bar indeterminate"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <p class="muted">
+        <span class="pill">CORS</span> This runs in the browser. If you see a CORS error, you will need to run a CLI variant.
+      </p>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => ( $("#log").textContent += ( $("#log").textContent ? "\n" : "" ) + m, $("#log").scrollTop = $("#log").scrollHeight );
+const setStatus = (t) => $("#status").textContent = t;
+const setBar = (pct) => { const b = $("#bar"); b.classList.remove("indeterminate"); b.style.width = Math.max(0,Math.min(100,pct)) + "%"; };
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const API_ENDPOINT = "https://api.thinkific.com/api/public/v1/promotions";
+const COUPON_ENDPOINT = "https://api.thinkific.com/api/public/v1/coupons";
+const PAGE_LIMIT = 250;
+const TOKEN_KEY = "thinkific-bulk-coupon-token";
+
+let promotions = [];
+let couponCsvCache = null;
+let stopRequested = false;
+let couponRows = [];
+let remainingRows = [];
+let canDownloadRemaining = false;
+let isImporting = false;
+let lastCouponFileKey = "";
+let failedRows = [];
+let canDownloadFailed = false;
+
+function normalizeDetailValue(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function formatDateOnly(value) {
+  const raw = normalizeDetailValue(value).trim();
+  if (!raw) return "";
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return raw;
+  return dt.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+}
+
+function normalizeHeader(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_-]+/g, "");
+}
+
+function mapCouponHeaders(headers) {
+  const map = {};
+  for (let i = 0; i < headers.length; i++) {
+    const key = normalizeHeader(headers[i]);
+    if (!key) continue;
+    if (key === "code" || key === "couponcode") map.code = i;
+    if (key === "quantity" || key === "qty") map.quantity = i;
+  }
+  return map;
+}
+
+function getFileKey(file) {
+  if (!file) return "";
+  return [file.name, file.size, file.lastModified].join("|");
+}
+
+function getCouponMappingSelection() {
+  const codeVal = $("#coupon-code-col").value;
+  const qtyVal = $("#coupon-qty-col").value;
+  const codeIdx = codeVal === "" ? undefined : Number(codeVal);
+  const qtyIdx = qtyVal === "" ? undefined : Number(qtyVal);
+  return {
+    code: Number.isFinite(codeIdx) ? codeIdx : undefined,
+    quantity: Number.isFinite(qtyIdx) ? qtyIdx : undefined
+  };
+}
+
+function setCouponMappingOptions(headers) {
+  const codeSelect = $("#coupon-code-col");
+  const qtySelect = $("#coupon-qty-col");
+  codeSelect.innerHTML = "";
+  qtySelect.innerHTML = "";
+
+  const codePlaceholder = document.createElement("option");
+  codePlaceholder.value = "";
+  codePlaceholder.textContent = "Select column";
+  codePlaceholder.disabled = true;
+  codePlaceholder.selected = true;
+  codeSelect.appendChild(codePlaceholder);
+
+  const qtyNone = document.createElement("option");
+  qtyNone.value = "";
+  qtyNone.textContent = "None";
+  qtySelect.appendChild(qtyNone);
+
+  headers.forEach((header, idx) => {
+    const label = String(header || "").trim() || ("Column " + (idx + 1));
+    const optCode = document.createElement("option");
+    optCode.value = String(idx);
+    optCode.textContent = label;
+    codeSelect.appendChild(optCode);
+
+    const optQty = document.createElement("option");
+    optQty.value = String(idx);
+    optQty.textContent = label;
+    qtySelect.appendChild(optQty);
+  });
+
+  const detected = mapCouponHeaders(headers);
+  if (detected.code !== undefined) {
+    codeSelect.value = String(detected.code);
+  }
+  if (detected.quantity !== undefined) {
+    qtySelect.value = String(detected.quantity);
+  }
+
+  codeSelect.disabled = false;
+  qtySelect.disabled = false;
+}
+
+function clearCouponPreview() {
+  $("#coupon-preview-meta").textContent = "No CSV loaded.";
+  $("#coupon-preview-table").innerHTML = "";
+  $("#coupon-code-col").innerHTML = "";
+  $("#coupon-qty-col").innerHTML = "";
+  $("#coupon-code-col").disabled = true;
+  $("#coupon-qty-col").disabled = true;
+  couponCsvCache = null;
+}
+
+function hasRemainingCoupons(rows) {
+  return rows.some(r => r.status === "Pending" || r.status === "Stopped");
+}
+
+function hasProcessedCoupons(rows) {
+  return rows.some(r => r.status && r.status !== "Pending" && r.status !== "Stopped");
+}
+
+function updateImportLabel() {
+  if (isImporting) {
+    $("#import-coupons").textContent = "Importing…";
+    return;
+  }
+  const file = $("#coupon-csv").files[0];
+  const fileKey = getFileKey(file);
+  if (fileKey && fileKey === lastCouponFileKey && couponRows.length && hasRemainingCoupons(couponRows) && hasProcessedCoupons(couponRows)) {
+    $("#import-coupons").textContent = "Resume Import";
+  } else {
+    $("#import-coupons").textContent = "Import Coupons";
+  }
+}
+
+function csvParse(text) {
+  const rows = [];
+  let cur = "";
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQuotes = false; continue; }
+      cur += ch;
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === ",") { row.push(cur); cur = ""; continue; }
+    if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
+    if (ch === "\r") { continue; }
+    cur += ch;
+  }
+  row.push(cur);
+  rows.push(row);
+  return rows;
+}
+
+function csvEscape(value) {
+  const s = String(value ?? "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+async function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
+
+function renderCouponPreview() {
+  if (!couponCsvCache || !couponCsvCache.rows || !couponCsvCache.rows.length) {
+    clearCouponPreview();
+    return;
+  }
+
+  const rows = couponCsvCache.rows;
+  const headers = couponCsvCache.headers;
+  const totalRows = Math.max(0, rows.length - 1);
+  const previewRows = rows.slice(1, Math.min(rows.length, 21));
+  const mapping = getCouponMappingSelection();
+
+  $("#coupon-preview-meta").textContent = "Showing " + previewRows.length + " of " + totalRows + " rows.";
+  const table = $("#coupon-preview-table");
+  table.innerHTML = "";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headers.forEach((header, idx) => {
+    const th = document.createElement("th");
+    th.textContent = String(header || "").trim() || ("Column " + (idx + 1));
+    if (idx === mapping.code || idx === mapping.quantity) th.classList.add("preview-highlight");
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  previewRows.forEach((row) => {
+    const tr = document.createElement("tr");
+    headers.forEach((_, idx) => {
+      const td = document.createElement("td");
+      td.textContent = row[idx] !== undefined ? String(row[idx]) : "";
+      if (idx === mapping.code || idx === mapping.quantity) td.classList.add("preview-highlight");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+}
+
+async function handleCouponCsvChange() {
+  const file = $("#coupon-csv").files[0];
+  if (!file) {
+    clearCouponPreview();
+    couponRows = [];
+    remainingRows = [];
+    canDownloadRemaining = false;
+    failedRows = [];
+    canDownloadFailed = false;
+    lastCouponFileKey = "";
+    $("#stop-import").textContent = "Stop Import";
+    $("#stop-import").disabled = true;
+    $("#download-failed").disabled = true;
+    updateImportLabel();
+    return;
+  }
+
+  try {
+    const text = await readFileAsText(file);
+    const rows = csvParse(text).filter(r => r.some(cell => String(cell || "").trim() !== ""));
+    if (!rows.length) throw new Error("CSV appears empty.");
+    const headers = rows[0].map(h => String(h || ""));
+    couponCsvCache = { key: getFileKey(file), rows, headers };
+    setCouponMappingOptions(headers);
+    renderCouponPreview();
+    if (getFileKey(file) !== lastCouponFileKey) {
+      couponRows = [];
+      remainingRows = [];
+      canDownloadRemaining = false;
+      failedRows = [];
+      canDownloadFailed = false;
+      $("#stop-import").textContent = "Stop Import";
+      $("#stop-import").disabled = true;
+      $("#download-failed").disabled = true;
+    }
+    updateImportLabel();
+  } catch (err) {
+    clearCouponPreview();
+    log("Error: " + err.message);
+    updateImportLabel();
+  }
+}
+
+function extractPromotionsFromResponse(json) {
+  if (!json) return [];
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json.items)) return json.items;
+  if (Array.isArray(json.promotions)) return json.promotions;
+  if (json.data) {
+    if (Array.isArray(json.data)) return json.data;
+    if (Array.isArray(json.data.items)) return json.data.items;
+    if (Array.isArray(json.data.promotions)) return json.data.promotions;
+  }
+  return [];
+}
+
+function getPaginationMeta(json) {
+  if (!json || !json.meta) return null;
+  if (json.meta.pagination) return json.meta.pagination;
+  if (json.meta.page) return json.meta;
+  return null;
+}
+
+function getTotalPages(pagination) {
+  if (!pagination) return null;
+  const total = pagination.total_pages ?? pagination.totalPages ?? pagination.pages ?? pagination.totalPagesCount;
+  const num = Number(total);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+function getNextPage(pagination) {
+  if (!pagination) return null;
+  const next = pagination.next_page ?? pagination.nextPage ?? pagination.next;
+  const num = Number(next);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+async function requestJson(url, token, attempt = 1) {
+  const resp = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/json"
+    }
+  });
+
+  if (resp.status === 429 && attempt <= 3) {
+    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
+    await sleep(waitMs);
+    return requestJson(url, token, attempt + 1);
+  }
+
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return json;
+}
+
+async function requestPostJson(url, token, body, attempt = 1) {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (resp.status === 429 && attempt <= 3) {
+    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
+    await sleep(waitMs);
+    return requestPostJson(url, token, body, attempt + 1);
+  }
+
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return json;
+}
+
+function normalizePromotions(items) {
+  const out = [];
+  const seen = new Set();
+  for (const item of items) {
+    const rawId = item && (item.id ?? item.promotion_id ?? item.promotionId ?? item.coupon_id ?? item.couponId);
+    const id = rawId !== null && rawId !== undefined ? String(rawId).trim() : "";
+    if (!id || seen.has(id)) continue;
+    const rawName = item && (item.name ?? item.title ?? item.code ?? item.coupon_code ?? item.couponCode ?? item.label);
+    const name = String(rawName || "").trim() || ("Promotion " + id);
+    if (name.toLowerCase().includes("group order:")) continue;
+    const discountType = normalizeDetailValue(
+      item && (item.discount_type ?? item.discountType ?? item.promotion_type ?? item.promotionType ?? item.type ?? item.kind ?? "")
+    );
+    const amount = normalizeDetailValue(
+      item && (item.amount ?? item.discount_amount ?? item.discountAmount ?? item.value ?? item.percent_off ?? item.percentOff ?? item.percentage ?? "")
+    );
+    const duration = normalizeDetailValue(
+      item && (item.duration ?? item.duration_in_days ?? item.duration_in_months ?? item.durationDays ?? item.duration_days ?? item.durationMonths ?? "")
+    );
+    const createdAt = normalizeDetailValue(
+      item && (item.created_at ?? item.createdAt ?? item.created_on ?? item.createdOn ?? item.inserted_at ?? item.insertedAt ?? "")
+    );
+    out.push({ id, name, discountType, amount, duration, createdAt });
+    seen.add(id);
+  }
+  return out;
+}
+
+function buildOptionLabel(promo) {
+  if (!promo) return "";
+  if (!promo.name) return promo.id;
+  if (promo.name.includes(promo.id)) return promo.name;
+  return promo.name + " (ID: " + promo.id + ")";
+}
+
+function renderPromotionOptions() {
+  const select = $("#promo-select");
+  const search = $("#promo-search").value.trim().toLowerCase();
+  const prev = select.value;
+  const filtered = promotions.filter(p => {
+    if (!search) return true;
+    return p.name.toLowerCase().includes(search);
+  });
+
+  select.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  placeholder.textContent = filtered.length ? "Select a promotion" : "No matches";
+  select.appendChild(placeholder);
+
+  for (const promo of filtered) {
+    const option = document.createElement("option");
+    option.value = promo.id;
+    option.textContent = buildOptionLabel(promo);
+    select.appendChild(option);
+  }
+
+  if (prev && filtered.some(p => p.id === prev)) {
+    select.value = prev;
+  }
+
+  select.disabled = promotions.length === 0;
+  updatePromotionDetails();
+
+  const meta = $("#promo-meta");
+  if (!promotions.length) {
+    meta.textContent = "No promotions loaded.";
+  } else if (search) {
+    meta.textContent = filtered.length + " of " + promotions.length + " promotions match.";
+  } else {
+    meta.textContent = promotions.length + " promotions loaded.";
+  }
+}
+
+function updatePromotionDetails() {
+  const id = $("#promo-select").value || "";
+  const promo = promotions.find(p => p.id === id) || null;
+  $("#promo-detail-name").textContent = promo ? promo.name : "";
+  $("#promo-detail-type").textContent = promo ? promo.discountType : "";
+  $("#promo-detail-amount").textContent = promo ? promo.amount : "";
+  $("#promo-detail-duration").textContent = promo ? promo.duration : "";
+  $("#promo-detail-created").textContent = promo ? formatDateOnly(promo.createdAt) : "";
+}
+
+function describeError(err) {
+  const msg = err && err.message ? String(err.message) : "Unknown error";
+  if (err && err.body) {
+    return msg + " | " + JSON.stringify(err.body);
+  }
+  return msg;
+}
+
+function downloadRemainingCoupons() {
+  if (!remainingRows.length) {
+    alert("No remaining rows to download.");
+    return;
+  }
+  const includeQty = remainingRows.some(r => String(r.quantity || "").trim() !== "");
+  const headers = includeQty ? ["code", "quantity"] : ["code"];
+  const lines = [headers.map(csvEscape).join(",")];
+  for (const row of remainingRows) {
+    const cols = includeQty ? [row.code, row.quantity || ""] : [row.code];
+    lines.push(cols.map(csvEscape).join(","));
+  }
+
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-coupon-import-remaining.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Remaining CSV downloaded (" + remainingRows.length + " rows).");
+}
+
+function downloadFailedReport() {
+  if (!failedRows.length) {
+    alert("No failed rows to download.");
+    return;
+  }
+  const headers = ["code", "reason"];
+  const lines = [headers.map(csvEscape).join(",")];
+  for (const row of failedRows) {
+    lines.push([row.code, row.reason].map(csvEscape).join(","));
+  }
+
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-coupon-import-failed.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Failed report downloaded (" + failedRows.length + " rows).");
+}
+
+async function loadCouponRows(file) {
+  let rows;
+  const key = getFileKey(file);
+  if (couponCsvCache && couponCsvCache.key === key) {
+    rows = couponCsvCache.rows;
+  } else {
+    const text = await readFileAsText(file);
+    rows = csvParse(text).filter(r => r.some(cell => String(cell || "").trim() !== ""));
+  }
+  if (!rows.length) throw new Error("CSV appears empty.");
+
+  const headers = rows[0];
+  const map = getCouponMappingSelection();
+  const detected = mapCouponHeaders(headers);
+  if (map.code === undefined && detected.code !== undefined) {
+    map.code = detected.code;
+  }
+  if (map.quantity === undefined && detected.quantity !== undefined) {
+    map.quantity = detected.quantity;
+  }
+  if (map.code === undefined) {
+    throw new Error("Select a code column before importing.");
+  }
+
+  const data = [];
+  const totalRows = Math.max(0, rows.length - 1);
+  const maxRows = Math.min(totalRows, 1000);
+  if (totalRows > 1000) {
+    log("⚠ CSV has " + totalRows + " rows. Only the first 1000 will be processed.");
+  }
+  for (let i = 1; i <= maxRows; i++) {
+    const row = rows[i];
+    const code = String(row[map.code] || "").trim();
+    if (!code) continue;
+    const quantity = map.quantity !== undefined ? String(row[map.quantity] || "").trim() : "";
+    data.push({ code, quantity, status: "Pending" });
+  }
+
+  if (!data.length) throw new Error("No coupon codes found after headers.");
+  return data;
+}
+
+async function importCoupons() {
+  const token = $("#token").value.trim();
+  const promoId = $("#promo-select").value.trim();
+  const file = $("#coupon-csv").files[0];
+  if (!token) { alert("Bearer token is required."); return; }
+  if (!promoId) { alert("Select a promotion first."); return; }
+  if (!file) { alert("Select a CSV file to import."); return; }
+
+  isImporting = true;
+  stopRequested = false;
+  remainingRows = [];
+  canDownloadRemaining = false;
+  failedRows = [];
+  canDownloadFailed = false;
+  $("#import-coupons").disabled = true;
+  updateImportLabel();
+  $("#stop-import").disabled = false;
+  $("#stop-import").textContent = "Stop Import";
+  $("#download-failed").disabled = true;
+  $("#log").textContent = "";
+  setStatus("Parsing CSV...");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  try {
+    const fileKey = getFileKey(file);
+    let rows;
+    if (fileKey && fileKey === lastCouponFileKey && couponRows.length) {
+      rows = couponRows;
+      setStatus("Resuming import...");
+      log("Resuming import with existing rows.");
+    } else {
+      rows = await loadCouponRows(file);
+      couponRows = rows;
+      lastCouponFileKey = fileKey;
+      setStatus("Importing " + rows.length + " coupons...");
+      log("Loaded " + rows.length + " rows from CSV.");
+    }
+
+    const remaining = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+    const total = remaining.length;
+    if (!total) {
+      setStatus("Nothing to import. All rows already processed.");
+      log("No remaining rows to import.");
+      $("#stop-import").disabled = true;
+      isImporting = false;
+      $("#import-coupons").disabled = false;
+      updateImportLabel();
+      return;
+    }
+    let created = 0;
+    let failed = 0;
+
+    let processed = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!(row.status === "Pending" || row.status === "Stopped")) continue;
+      if (stopRequested) {
+        for (let j = i; j < rows.length; j++) {
+          if (rows[j].status === "Pending") rows[j].status = "Stopped";
+        }
+        remainingRows = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+        log("⚠ Import stopped by user.");
+        break;
+      }
+      processed += 1;
+      const body = { code: row.code };
+      if (row.quantity) {
+        const qty = Number(row.quantity);
+        if (Number.isFinite(qty)) {
+          body.quantity = qty;
+        } else {
+          log("⚠ Invalid quantity for code " + row.code + ": " + row.quantity + " (skipping quantity)");
+        }
+      }
+
+      setStatus("Importing coupons " + processed + "/" + total + "...");
+      setBar(Math.floor((processed / total) * 100));
+
+      try {
+        const url = COUPON_ENDPOINT + "?promotion_id=" + encodeURIComponent(promoId);
+        await requestPostJson(url, token, body);
+        row.status = "Created";
+        created += 1;
+        log("✅ Added coupon code: " + row.code);
+      } catch (err) {
+        row.status = "Error";
+        failed += 1;
+        const reason = describeError(err);
+        failedRows.push({ code: row.code, reason });
+        log("⚠ Failed for code " + row.code + ": " + reason);
+        if (err && err.body) log("  Details: " + JSON.stringify(err.body));
+      }
+    }
+
+    const stoppedNote = stopRequested ? " (stopped early)" : "";
+    if (failedRows.length) {
+      canDownloadFailed = true;
+      $("#download-failed").disabled = false;
+      log("Failed report ready for download: " + failedRows.length + " rows.");
+    }
+    if (stopRequested) {
+      if (!remainingRows.length) {
+        remainingRows = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+      }
+      setStatus("Stopped by user. Created " + created + ", failed " + failed + "." + stoppedNote);
+      if (remainingRows.length) {
+        $("#stop-import").textContent = "Download Remaining CSV";
+        $("#stop-import").disabled = false;
+        canDownloadRemaining = true;
+        log("Remaining rows ready for download: " + remainingRows.length + ".");
+      } else {
+        $("#stop-import").disabled = true;
+      }
+    } else {
+      setStatus("Done. Created " + created + " coupons" + (failed ? "; " + failed + " failed." : ".") + ".");
+      $("#stop-import").disabled = true;
+    }
+    setBar(100);
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+  } finally {
+    isImporting = false;
+    $("#import-coupons").disabled = false;
+    $("#stop-import").disabled = !canDownloadRemaining;
+    $("#download-failed").disabled = !canDownloadFailed;
+    updateImportLabel();
+  }
+}
+
+async function fetchAllPromotions(token) {
+  const results = [];
+  let page = 1;
+  let totalPages = null;
+  let nextPage = null;
+
+  while (true) {
+    setStatus("Fetching promotions page " + page + "...");
+    log("Requesting promotions page " + page + "...");
+    const url = API_ENDPOINT + "?limit=" + PAGE_LIMIT + "&page=" + page;
+    const json = await requestJson(url, token);
+    const items = extractPromotionsFromResponse(json);
+    results.push(...items);
+    log("Received " + items.length + " promotions (total " + results.length + ").");
+
+    const pagination = getPaginationMeta(json);
+    if (pagination) {
+      totalPages = getTotalPages(pagination);
+      nextPage = getNextPage(pagination);
+    }
+
+    if (totalPages && page >= totalPages) break;
+    if (nextPage && nextPage > page) {
+      page = nextPage;
+    } else if (items.length < PAGE_LIMIT && !totalPages) {
+      break;
+    } else {
+      page += 1;
+    }
+
+    setBar(Math.min(90, Math.floor((results.length / (results.length + PAGE_LIMIT)) * 100)));
+    await sleep(300);
+  }
+
+  return results;
+}
+
+async function loadPromotions() {
+  const token = $("#token").value.trim();
+  if (!token) { alert("Bearer token is required."); return; }
+
+  $("#load-promotions").disabled = true;
+  $("#clear-promotions").disabled = true;
+  $("#promo-search").value = "";
+  $("#log").textContent = "";
+  setStatus("Starting...");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  try {
+    const items = await fetchAllPromotions(token);
+    promotions = normalizePromotions(items).sort((a, b) => a.name.localeCompare(b.name));
+    renderPromotionOptions();
+    $("#clear-promotions").disabled = promotions.length === 0;
+    setStatus(promotions.length ? "Ready. Promotions loaded." : "No promotions found.");
+    setBar(100);
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+  } finally {
+    $("#load-promotions").disabled = false;
+  }
+}
+
+function clearPromotions() {
+  promotions = [];
+  $("#promo-search").value = "";
+  renderPromotionOptions();
+  setStatus("Cleared.");
+  setBar(0);
+  $("#clear-promotions").disabled = true;
+}
+
+$("#promo-search").addEventListener("input", renderPromotionOptions);
+$("#promo-select").addEventListener("change", updatePromotionDetails);
+$("#load-promotions").addEventListener("click", loadPromotions);
+$("#clear-promotions").addEventListener("click", clearPromotions);
+$("#import-coupons").addEventListener("click", importCoupons);
+$("#download-failed").addEventListener("click", downloadFailedReport);
+$("#stop-import").addEventListener("click", () => {
+  if (canDownloadRemaining) {
+    downloadRemainingCoupons();
+    return;
+  }
+  if (stopRequested || !isImporting) return;
+  stopRequested = true;
+  $("#stop-import").disabled = true;
+  setStatus("Stopping after current request…");
+  log("Stop requested. Finishing current coupon then stopping.");
+});
+$("#coupon-csv").addEventListener("change", handleCouponCsvChange);
+$("#coupon-code-col").addEventListener("change", renderCouponPreview);
+$("#coupon-qty-col").addEventListener("change", renderCouponPreview);
+
+const saved = localStorage.getItem(TOKEN_KEY);
+if (saved) {
+  $("#token").value = saved;
+  log("Loaded saved API key from this device.");
+}
+
+renderPromotionOptions();
+
+$("#save-token").addEventListener("click", () => {
+  const token = $("#token").value.trim();
+  if (!token) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, token);
+  log("API key saved to this device.");
+});
+</script>
+</body>
+</html>
