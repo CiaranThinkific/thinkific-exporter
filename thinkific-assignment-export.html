@@ -27,8 +27,20 @@
     .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
     input, textarea, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink) }
     textarea { min-height:84px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    .row { display:flex; gap:12px; align-items:flex-end }
-    .row > * { flex:1 }
+    .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;}
+    .row > label {
+  flex: 1 1 220px;      /* responsive columns */
+  min-width: 220px;     /* optional, keeps them readable */
+  display: flex;
+  flex-direction: column;
+}
+
+.row input,
+.row select {
+  width: 100%;
+  box-sizing: border-box;
+}
+    .row > * { min-width:0 }
     .btns { display:flex; gap:12px; margin-top:16px }
     button { flex:1; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
     button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
@@ -105,9 +117,31 @@
         </div>
       </label>
 
-      <label>User Email
-        <input id="user-email" placeholder="name@company.com">
-      </label>
+      <div class="row">
+        <label>User Email
+          <input id="user-email" placeholder="name@company.com (optional)">
+        </label>
+        <label>Course ID Filter
+          <input id="course-id" placeholder="course ID (optional)">
+        </label>
+        <label>Group Name Filter
+          <input id="group-name" placeholder="group name (optional)">
+        </label>
+        <label>Group Match Mode
+          <select id="group-match-mode">
+            <option value="exact">Exact</option>
+            <option value="fuzzy">Case-insensitive / partial</option>
+          </select>
+        </label>
+        <label>Status Filter
+          <select id="status-filter">
+            <option value="">(blank)</option>
+            <option value="APPROVED">APPROVED</option>
+            <option value="REJECTED">REJECTED</option>
+            <option value="PENDING">PENDING</option>
+          </select>
+        </label>
+      </div>
 
       <div class="btns">
         <button id="start">Generate Report</button>
@@ -143,6 +177,7 @@ const setBar = (pct) => { const b = document.querySelector("#bar"); b.classList.
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const ASSIGNMENTS_PAGE_SIZE = 100;
+const GROUPS_PAGE_SIZE = 100;
 
 const QUERY_USER_BY_EMAIL = `query UserByEmail($email: EmailAddress!) {
   userByEmail(email: $email) {
@@ -150,9 +185,9 @@ const QUERY_USER_BY_EMAIL = `query UserByEmail($email: EmailAddress!) {
   }
 }`;
 
-const QUERY_ASSIGNMENT_SUBMISSIONS = `query SiteAssignments($after: String, $userId: ID!) {
+const QUERY_ASSIGNMENT_SUBMISSIONS = `query SiteAssignments($after: String, $userIds: [ID!], $courseIds: [ID!], $groupIds: [ID!], $status: AssignmentSubmissionStatus) {
   site {
-    assignmentSubmissions(first: ${ASSIGNMENTS_PAGE_SIZE}, after: $after, filter: { userIds: [$userId] }) {
+    assignmentSubmissions(first: ${ASSIGNMENTS_PAGE_SIZE}, after: $after, filter: { userIds: $userIds, courseIds: $courseIds, groupIds: $groupIds, status: $status }) {
       nodes {
         id
         createdAt
@@ -175,6 +210,21 @@ const QUERY_ASSIGNMENT_SUBMISSIONS = `query SiteAssignments($after: String, $use
             title
           }
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}`;
+
+const QUERY_GROUPS = `query SiteGroups($after: String) {
+  site {
+    groups(first: ${GROUPS_PAGE_SIZE}, after: $after) {
+      nodes {
+        id
+        name
       }
       pageInfo {
         hasNextPage
@@ -289,6 +339,7 @@ function toCSV(rows, order) {
 const COLUMN_DEFS = [
   { id: "assignmentSubmissionId", label: "Submission ID", get: r => r.assignmentSubmissionId },
   { id: "courseName", label: "Course", get: r => r.courseName },
+  { id: "groupName", label: "Group", get: r => r.groupName },
   { id: "lessonId", label: "Lesson ID", get: r => r.lessonId },
   { id: "lessonTitle", label: "Lesson Title", get: r => r.lessonTitle },
   { id: "submissionCreatedAt", label: "Submitted At", get: r => r.submissionCreatedAt },
@@ -679,9 +730,12 @@ async function exportUsers() {
   const endpoint = document.querySelector("#endpoint").value.trim();
   const token = document.querySelector("#token").value.trim();
   const email = document.querySelector("#user-email").value.trim();
+  const statusFilter = document.querySelector("#status-filter").value.trim();
+  const courseId = document.querySelector("#course-id").value.trim();
+  const groupName = document.querySelector("#group-name").value.trim();
+  const groupMatchMode = document.querySelector("#group-match-mode").value;
   const outfile = document.querySelector("#outfile").value.trim() || "thinkific-assignment-submissions.csv";
   if (!endpoint || !token) { alert("Endpoint and token are required."); return; }
-  if (!email) { alert("User email is required."); return; }
 
   document.querySelector("#start").disabled = true;
   document.querySelector("#download").disabled = true;
@@ -694,34 +748,102 @@ async function exportUsers() {
   const detailRows = [];
 
   try {
-    setStatus("Looking up user ID for " + email + "…");
-    log("Querying user ID by email…");
-    let userId = null;
-    while (true) {
-      try {
-        const userData = await gql(endpoint, token, QUERY_USER_BY_EMAIL, { email });
-        userId = userData && userData.userByEmail && userData.userByEmail.id ? userData.userByEmail.id : null;
-        break;
-      } catch (err) {
-        if (isRateLimitError(err)) {
-          const { waitMs, resetAt } = getRateLimitWait(err);
-          const safeWaitMs = Math.max(1000, waitMs || 0);
-          const waitSeconds = Math.ceil(safeWaitMs / 1000);
-          const resetNote = resetAt ? " (reset at " + resetAt + ")" : "";
-          setStatus("Rate limited. Waiting " + waitSeconds + "s" + resetNote + "…");
-          log("API rate limit hit while fetching user ID. Waiting " + waitSeconds + "s" + resetNote + "…");
-          document.querySelector("#bar").classList.add("indeterminate");
-          await sleep(safeWaitMs);
-          continue;
+    let userIds = null;
+    if (email) {
+      setStatus("Looking up user ID for " + email + "…");
+      log("Querying user ID by email…");
+      let userId = null;
+      while (true) {
+        try {
+          const userData = await gql(endpoint, token, QUERY_USER_BY_EMAIL, { email });
+          userId = userData && userData.userByEmail && userData.userByEmail.id ? userData.userByEmail.id : null;
+          break;
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            const { waitMs, resetAt } = getRateLimitWait(err);
+            const safeWaitMs = Math.max(1000, waitMs || 0);
+            const waitSeconds = Math.ceil(safeWaitMs / 1000);
+            const resetNote = resetAt ? " (reset at " + resetAt + ")" : "";
+            setStatus("Rate limited. Waiting " + waitSeconds + "s" + resetNote + "…");
+            log("API rate limit hit while fetching user ID. Waiting " + waitSeconds + "s" + resetNote + "…");
+            document.querySelector("#bar").classList.add("indeterminate");
+            await sleep(safeWaitMs);
+            continue;
+          }
+          throw err;
         }
-        throw err;
       }
+
+      if (!userId) {
+        setStatus("No user found for " + email + ".");
+        log("No user found for " + email + ". Check the email or permissions.");
+        return;
+      }
+      userIds = [userId];
+    } else {
+      setStatus("No email provided. Fetching all assignment submissions…");
+      log("No email provided; skipping user lookup.");
     }
 
-    if (!userId) {
-      setStatus("No user found for " + email + ".");
-      log("No user found for " + email + ". Check the email or permissions.");
-      return;
+    let groupIds = null;
+    let resolvedGroupName = "";
+    if (groupName) {
+      setStatus("Looking up group ID for " + groupName + "…");
+      log("Querying groups to match group name…");
+      const groupNodes = [];
+      let groupsAfter = null;
+      while (true) {
+        let groupsData;
+        try {
+          groupsData = await gql(endpoint, token, QUERY_GROUPS, { after: groupsAfter });
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            const { waitMs, resetAt } = getRateLimitWait(err);
+            const safeWaitMs = Math.max(1000, waitMs || 0);
+            const waitSeconds = Math.ceil(safeWaitMs / 1000);
+            const resetNote = resetAt ? " (reset at " + resetAt + ")" : "";
+            setStatus("Rate limited. Waiting " + waitSeconds + "s" + resetNote + "…");
+            log("API rate limit hit while fetching groups. Waiting " + waitSeconds + "s" + resetNote + "…");
+            document.querySelector("#bar").classList.add("indeterminate");
+            await sleep(safeWaitMs);
+            groupsData = await gql(endpoint, token, QUERY_GROUPS, { after: groupsAfter });
+          } else {
+            throw err;
+          }
+        }
+
+        const groupConn = groupsData && groupsData.site && groupsData.site.groups;
+        const nodes = groupConn && Array.isArray(groupConn.nodes) ? groupConn.nodes : [];
+        groupNodes.push(...nodes);
+        if (groupConn && groupConn.pageInfo && groupConn.pageInfo.hasNextPage) {
+          groupsAfter = groupConn.pageInfo.endCursor;
+        } else {
+          break;
+        }
+      }
+
+      const normalizedNeedle = groupName.toLowerCase();
+      const matches = groupNodes.filter(g => {
+        const name = g && g.name ? g.name : "";
+        if (!name) return false;
+        if (groupMatchMode === "fuzzy") {
+          return name.toLowerCase().includes(normalizedNeedle);
+        }
+        return name === groupName;
+      });
+
+      if (matches.length === 0 || !matches[0].id) {
+        setStatus("No group found for " + groupName + ".");
+        log("No group found for " + groupName + ". Check the name or permissions.");
+        return;
+      }
+      if (matches.length > 1) {
+        log("Multiple groups matched; using the first match: " + (matches[0].name || matches[0].id));
+      }
+      groupIds = [matches[0].id];
+      resolvedGroupName = matches[0].name || groupName;
+    } else {
+      log("No group name provided; skipping group lookup.");
     }
 
     let after = null;
@@ -733,7 +855,13 @@ async function exportUsers() {
 
       let data;
       try {
-        data = await gql(endpoint, token, QUERY_ASSIGNMENT_SUBMISSIONS, { after, userId });
+        data = await gql(endpoint, token, QUERY_ASSIGNMENT_SUBMISSIONS, {
+          after,
+          userIds,
+          courseIds: courseId ? [courseId] : null,
+          groupIds,
+          status: statusFilter ? statusFilter : null
+        });
       } catch (err) {
         if (isRateLimitError(err)) {
           const { waitMs, resetAt } = getRateLimitWait(err);
@@ -766,6 +894,7 @@ async function exportUsers() {
         detailRows.push({
           assignmentSubmissionId: node && node.id ? node.id : "",
           courseName,
+          groupName: resolvedGroupName,
           lessonId: lesson.id || "",
           lessonTitle: lesson.title || "",
           submissionCreatedAt: node.createdAt || "",
