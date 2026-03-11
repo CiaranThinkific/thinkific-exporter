@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Category Product Mapper</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241 }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    h2 { margin:1.5em 0 .5em; font-size:1.2rem }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input, textarea, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink) }
+    .row { display:flex; gap:12px; align-items:flex-end }
+    .row > * { flex:1 }
+    .btns { display:flex; gap:12px; margin-top:16px }
+    button { flex:1; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button.danger { background:#ef4444; color:#fff; border:1px solid rgba(239,68,68,.6) }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:280px; overflow:auto; white-space:pre-wrap }
+    .instructions { margin-top:16px; background:rgba(15,23,42,.55); border:1px solid #2b3650; border-radius:14px; padding:14px 16px }
+    .instructions h3 { margin:0 0 8px; font-size:1.05rem }
+    .instructions ol { margin:0; padding-left:20px; color:#cbd5e1 }
+    .instructions li { margin:6px 0 }
+    .table-resize { margin-top:16px; border:1px solid #263249; border-radius:14px; background:#0a1220; overflow:hidden; min-height:200px; padding:0 20px 20px 0; position:relative }
+    .table-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; margin:0 -20px -20px 0 }
+    .table-toolbar { display:flex; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #263249; background:rgba(15,23,42,.6) }
+    table { width:100%; border-collapse:collapse; font-size:.9rem; table-layout:auto }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2a3e; vertical-align:top; white-space:nowrap }
+    th { background:#0b1324; position:sticky; top:0; z-index:1; text-align:left }
+    .table-scroll { flex:1; min-height:150px; overflow:auto }
+    .empty { padding:14px; color:var(--muted); font-size:.9rem }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+            <div class="brand-tag">Category Product Mapper</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Category Product Mapper</h1>
+      <div class="muted">Stage 1: Export products and categories. Fill product_ids in the categories CSV. Stage 2: Upload and apply to Thinkific.</div>
+
+      <div class="instructions">
+        <h3>Stage 1</h3>
+        <ol>
+          <li>Add your API Token and click Fetch & Export.</li>
+          <li>Download Products CSV (reference) and Categories CSV.</li>
+          <li>Fill the product_ids column in categories CSV (comma-separated IDs).</li>
+        </ol>
+      </div>
+      <div class="instructions">
+        <h3>Stage 2</h3>
+        <ol>
+          <li>Upload the filled categories CSV.</li>
+          <li>Click Apply to Thinkific.</li>
+        </ol>
+      </div>
+
+      <label>GraphQL Endpoint
+        <input id="endpoint" value="https://api.thinkific.com/stable/graphql">
+      </label>
+
+      <label>Bearer Token (saved on this device)
+        <div class="token-save">
+          <input id="token" value="add access token here!">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+
+      <h2>Stage 1 – Export</h2>
+      <div class="btns">
+        <button id="fetch">Fetch & Export</button>
+        <button id="download-products" class="secondary" disabled>Download Products CSV</button>
+        <button id="download-categories" class="secondary" disabled>Download Categories CSV</button>
+      </div>
+
+      <h2>Stage 2 – Apply</h2>
+      <label>Products per request (chunk size)
+        <input id="products-per-request" type="number" min="1" max="100" value="10">
+      </label>
+
+      <label>Categories CSV
+        <input id="csv-file" type="file" accept=".csv,text/csv">
+      </label>
+
+      <div class="btns">
+        <button id="apply">Apply to Thinkific</button>
+        <button id="stop" class="danger" disabled>Stop</button>
+      </div>
+
+      <div class="progress"><div id="bar" class="bar indeterminate"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <div class="table-resize" id="table-resize">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="muted" id="table-meta">No rows loaded.</div>
+          </div>
+          <div class="table-scroll">
+            <table id="results-table" aria-live="polite"></table>
+          </div>
+          <div id="table-empty" class="empty">Upload a CSV to see parsed rows.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => ( $("#log").textContent += ($("#log").textContent ? "\n" : "") + m, $("#log").scrollTop = $("#log").scrollHeight );
+const setStatus = (t) => $("#status").textContent = t;
+const setBar = (pct) => { const b = $("#bar"); b.classList.remove("indeterminate"); b.style.width = Math.max(0, Math.min(100, pct)) + "%"; };
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const REST_BASE = "https://api.thinkific.com/api/public/v1";
+const TOKEN_KEY = "thinkific-category-product-mapper-token";
+const COOLDOWN_THRESHOLD = 5;
+
+let productsData = [];
+let categoriesData = [];
+let tableRows = [];
+let stopRequested = false;
+
+const QUERY_PRODUCTS = `query ProductsPage($after: String) {
+  site {
+    products(first: 100, after: $after) {
+      nodes { id name }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+const QUERY_CATEGORIES = `query CategoriesPage($after: String) {
+  site {
+    categories(first: 100, after: $after) {
+      nodes { id name }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+const QUERY_CATEGORIES_SIMPLE = `query { site { categories(first: 100) { nodes { id name } } } }`;
+
+function attachRateLimit(err, payload) {
+  if (payload && payload.extensions && payload.extensions.rateLimit) {
+    err.rateLimit = payload.extensions.rateLimit;
+  }
+}
+
+async function gql(endpoint, token, query, variables) {
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ query, variables })
+  });
+
+  let json;
+  try {
+    json = await resp.json();
+  } catch (parseErr) {
+    if (!resp.ok) {
+      const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+      err.status = resp.status;
+      throw err;
+    }
+    throw new Error("Invalid JSON response.");
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  if (json.errors) {
+    const msg = json.errors.map(e => e.message).join("; ");
+    const err = new Error("GraphQL error: " + msg);
+    err.graphQLErrors = json.errors;
+    const code = json.errors.find(e => e.extensions && e.extensions.code)?.extensions.code;
+    if (code) err.code = code;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  return json.data;
+}
+
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.code === "RATE_LIMITED") return true;
+  if (err.status === 429) return true;
+  if (Array.isArray(err.graphQLErrors)) {
+    return err.graphQLErrors.some(e => e.extensions && e.extensions.code === "RATE_LIMITED");
+  }
+  const msg = typeof err.message === "string" ? err.message.toLowerCase() : "";
+  return msg.includes("rate limit") || msg.includes("429");
+}
+
+function getRateLimitWait(err) {
+  const fallbackMs = 60 * 1000;
+  const rl = err && err.rateLimit;
+  if (rl && rl.resetAt) {
+    const resetAtMs = new Date(rl.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) {
+        return { waitMs: Math.min(diff, 5 * 60 * 1000), resetAt: rl.resetAt };
+      }
+    }
+  }
+  return { waitMs: fallbackMs, resetAt: rl && rl.resetAt };
+}
+
+async function gqlWithRetry(endpoint, token, query, variables) {
+  for (;;) {
+    try {
+      return await gql(endpoint, token, query, variables);
+    } catch (err) {
+      if (isRateLimitError(err)) {
+        const { waitMs, resetAt } = getRateLimitWait(err);
+        const safeWaitMs = Math.max(1000, waitMs || 0);
+        setStatus("Rate limited. Waiting " + Math.ceil(safeWaitMs / 1000) + "s…");
+        log("Rate limited. Waiting " + Math.ceil(safeWaitMs / 1000) + "s" + (resetAt ? " (reset at " + resetAt + ")" : "") + "…");
+        await sleep(safeWaitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+function extractNumericId(id) {
+  if (id == null) return "";
+  const s = String(id).trim();
+  const m = s.match(/\/?(\d+)$/);
+  return m ? m[1] : s;
+}
+
+function csvEscape(v) {
+  const s = String(v || "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function csvParse(text) {
+  const rows = [];
+  let cur = "";
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQuotes = false; continue; }
+      cur += ch;
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === ',') { row.push(cur); cur = ""; continue; }
+    if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
+    if (ch === '\r') { continue; }
+    cur += ch;
+  }
+  row.push(cur);
+  rows.push(row);
+  return rows;
+}
+
+function normalizeHeader(s) {
+  return String(s || "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+async function fetchAllProducts(endpoint, token) {
+  const rows = [];
+  let after = null;
+  let page = 0;
+  while (true) {
+    page++;
+    setStatus("Fetching products page " + page + "…");
+    const data = await gqlWithRetry(endpoint, token, QUERY_PRODUCTS, { after });
+    const products = data?.site?.products;
+    if (!products) throw new Error("Unexpected products response.");
+    const nodes = products.nodes || [];
+    for (const p of nodes) {
+      rows.push({ id: p.id, name: p.name || "" });
+    }
+    log("Products page " + page + ": " + nodes.length + " (total: " + rows.length + ")");
+    if (products.pageInfo && products.pageInfo.hasNextPage) {
+      after = products.pageInfo.endCursor;
+    } else {
+      break;
+    }
+  }
+  return rows;
+}
+
+async function fetchAllCategories(endpoint, token) {
+  const rows = [];
+  let after = null;
+  let page = 0;
+  try {
+    while (true) {
+      page++;
+      setStatus("Fetching categories page " + page + "…");
+      const data = await gqlWithRetry(endpoint, token, QUERY_CATEGORIES, { after });
+      const categories = data?.site?.categories;
+      if (!categories) throw new Error("Unexpected categories response.");
+      const nodes = categories.nodes || [];
+      for (const c of nodes) {
+        rows.push({ id: c.id, name: c.name || "", product_ids: "" });
+      }
+      log("Categories page " + page + ": " + nodes.length + " (total: " + rows.length + ")");
+      if (categories.pageInfo && categories.pageInfo.hasNextPage) {
+        after = categories.pageInfo.endCursor;
+      } else {
+        break;
+      }
+    }
+  } catch (err) {
+    if (rows.length === 0) {
+      log("Categories pagination may not be supported, trying single page…");
+      setStatus("Fetching categories (single page)…");
+      const data = await gqlWithRetry(endpoint, token, QUERY_CATEGORIES_SIMPLE, {});
+      const categories = data?.site?.categories;
+      if (categories && categories.nodes) {
+        for (const c of categories.nodes) {
+          rows.push({ id: c.id, name: c.name || "", product_ids: "" });
+        }
+        log("Categories (single page): " + rows.length);
+      }
+    }
+  }
+  return rows;
+}
+
+function downloadProductsCsv() {
+  const lines = ["id,name"];
+  for (const p of productsData) {
+    lines.push([csvEscape(p.id), csvEscape(p.name)].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-products.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Downloaded products.csv (" + productsData.length + " rows).");
+}
+
+function downloadCategoriesCsv() {
+  const lines = ["id,name,product_ids"];
+  for (const c of categoriesData) {
+    lines.push([csvEscape(c.id), csvEscape(c.name), csvEscape(c.product_ids || "")].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-categories.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Downloaded categories.csv (" + categoriesData.length + " rows).");
+}
+
+async function fetchAndExport() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#token").value.trim();
+  if (!endpoint || !token) { alert("Endpoint and token are required."); return; }
+
+  $("#fetch").disabled = true;
+  $("#download-products").disabled = true;
+  $("#download-categories").disabled = true;
+  $("#log").textContent = "";
+  setStatus("Fetching…");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  try {
+    productsData = await fetchAllProducts(endpoint, token);
+    if (!productsData.length) {
+      setStatus("Error: No products found.");
+      log("No products found.");
+      return;
+    }
+    log("Loaded " + productsData.length + " products.");
+
+    categoriesData = await fetchAllCategories(endpoint, token);
+    if (!categoriesData.length) {
+      setStatus("Error: No categories found.");
+      log("No categories found.");
+      return;
+    }
+    log("Loaded " + categoriesData.length + " categories.");
+
+    $("#download-products").disabled = false;
+    $("#download-categories").disabled = false;
+    setBar(100);
+    setStatus("Ready. Download CSVs and fill product_ids.");
+    log("Download Products CSV and Categories CSV, then fill product_ids in the categories file.");
+  } catch (err) {
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+  } finally {
+    $("#fetch").disabled = false;
+  }
+}
+
+function getHeader(resp, ...names) {
+  for (const n of names) {
+    const v = resp.headers.get(n);
+    if (v != null && v !== "") return v;
+  }
+  return null;
+}
+
+async function postCollectionMembership(token, categoryId, productIds, attempt = 1) {
+  const url = REST_BASE + "/collection_memberships/" + encodeURIComponent(categoryId);
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ product_ids: productIds })
+  });
+
+  const remainingStr = getHeader(resp, "x-ratelimit-remaining-minute", "X-RateLimit-Remaining-Minute");
+  const remaining = parseInt(remainingStr || "", 10);
+  const resetStr = getHeader(resp, "ratelimit-reset", "RateLimit-Reset");
+  const resetMs = parseInt(resetStr || "", 10);
+
+  if (resp.status === 429 && attempt <= 5) {
+    const waitMs = Number.isFinite(resetMs) && resetMs > Date.now()
+      ? Math.max(1000, resetMs - Date.now())
+      : 60 * 1000;
+    setStatus("Rate limited. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+    log("429 Rate limited. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+    await sleep(waitMs);
+    return postCollectionMembership(token, categoryId, productIds, attempt + 1);
+  }
+
+  let json = null;
+  try {
+    json = await resp.json();
+  } catch {}
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return { remaining, resetMs, json };
+}
+
+async function applyToThinkific() {
+  const token = $("#token").value.trim();
+  const file = $("#csv-file").files[0];
+  const productsPerRequest = Math.max(1, Math.min(100, parseInt($("#products-per-request").value, 10) || 10));
+
+  if (!token) { alert("Bearer token is required."); return; }
+  if (!file) { alert("Select a categories CSV file."); return; }
+
+  stopRequested = false;
+  $("#apply").disabled = true;
+  $("#stop").disabled = false;
+  $("#log").textContent = "";
+  setStatus("Parsing CSV…");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  let text;
+  try {
+    text = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ""));
+      r.onerror = () => reject(r.error || new Error("Failed to read file"));
+      r.readAsText(file);
+    });
+  } catch (err) {
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+    $("#apply").disabled = false;
+    $("#stop").disabled = true;
+    return;
+  }
+
+  const rows = csvParse(text).filter(r => r.some(c => String(c || "").trim() !== ""));
+  if (!rows.length) {
+    setStatus("Error: CSV appears empty.");
+    log("CSV appears empty.");
+    $("#apply").disabled = false;
+    $("#stop").disabled = true;
+    return;
+  }
+
+  const headers = rows[0].map(normalizeHeader);
+  const idIdx = headers.findIndex(h => h === "id");
+  const productIdsIdx = headers.findIndex(h => h === "product_ids" || h === "productids");
+  if (idIdx === -1 || productIdsIdx === -1) {
+    setStatus("Error: CSV must have headers: id, product_ids");
+    log("CSV must have headers: id, product_ids");
+    $("#apply").disabled = false;
+    $("#stop").disabled = true;
+    return;
+  }
+
+  const rowsToProcess = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const id = String(row[idIdx] || "").trim();
+    const productIdsRaw = String(row[productIdsIdx] || "").trim();
+    if (!id) continue;
+    const productIds = productIdsRaw
+      .split(/[\s,;]+/)
+      .map(s => extractNumericId(s.trim()))
+      .filter(Boolean);
+    if (!productIds.length) continue;
+    rowsToProcess.push({ id: extractNumericId(id), productIds });
+  }
+
+  if (!rowsToProcess.length) {
+    setStatus("Error: No rows with product_ids found.");
+    log("No rows with product_ids found.");
+    $("#apply").disabled = false;
+    $("#stop").disabled = true;
+    return;
+  }
+
+  const chunks = [];
+  for (const r of rowsToProcess) {
+    for (let i = 0; i < r.productIds.length; i += productsPerRequest) {
+      chunks.push({
+        categoryId: r.id,
+        productIds: r.productIds.slice(i, i + productsPerRequest)
+      });
+    }
+  }
+
+  tableRows = chunks.map((c, i) => ({
+    categoryId: c.categoryId,
+    productIds: c.productIds,
+    status: "Pending",
+    index: i + 1
+  }));
+  renderTable();
+
+  let processed = 0;
+  let success = 0;
+  let failed = 0;
+  let lastRemaining = null;
+  let lastResetMs = null;
+
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      if (stopRequested) {
+        log("Stopped by user.");
+        break;
+      }
+
+      if (lastRemaining !== null && lastRemaining < COOLDOWN_THRESHOLD && Number.isFinite(lastResetMs) && lastResetMs > Date.now()) {
+        const waitMs = Math.max(1000, lastResetMs - Date.now());
+        setStatus("Rate limit low (remaining: " + lastRemaining + "). Waiting until reset…");
+        log("Rate limit low (remaining: " + lastRemaining + "). Waiting " + Math.ceil(waitMs / 1000) + "s until reset…");
+        await sleep(waitMs);
+      }
+
+      const chunk = chunks[i];
+      setStatus("Applying " + (i + 1) + "/" + chunks.length + " (remaining: " + (lastRemaining ?? "?") + ")…");
+      setBar(((i + 1) / chunks.length) * 100);
+
+      try {
+        const result = await postCollectionMembership(token, chunk.categoryId, chunk.productIds);
+        lastRemaining = result.remaining;
+        lastResetMs = result.resetMs;
+        if (Number.isFinite(result.remaining)) {
+          setStatus("Applying " + (i + 1) + "/" + chunks.length + " (remaining: " + result.remaining + ")…");
+        }
+        tableRows[i].status = "OK";
+        success++;
+        log("Chunk " + (i + 1) + ": category " + chunk.categoryId + " + " + chunk.productIds.length + " products OK.");
+      } catch (err) {
+        tableRows[i].status = "Error";
+        failed++;
+        log("Chunk " + (i + 1) + ": " + err.message);
+      }
+      renderTable();
+      processed++;
+
+      if (!stopRequested && i < chunks.length - 1) {
+        await sleep(300);
+      }
+    }
+
+    setBar(100);
+    setStatus("Done. " + success + " OK, " + failed + " failed.");
+    log("Complete. " + success + " OK, " + failed + " failed.");
+  } catch (err) {
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+  } finally {
+    $("#apply").disabled = false;
+    $("#stop").disabled = true;
+  }
+}
+
+function renderTable() {
+  const table = $("#results-table");
+  const empty = $("#table-empty");
+  const meta = $("#table-meta");
+  table.innerHTML = "";
+
+  if (!tableRows.length) {
+    empty.style.display = "block";
+    meta.textContent = "No rows loaded.";
+    return;
+  }
+
+  meta.textContent = tableRows.length + " chunks";
+  empty.style.display = "none";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["#", "Category ID", "Product IDs", "Status"].forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of tableRows) {
+    const tr = document.createElement("tr");
+    for (const col of [
+      row.index,
+      row.categoryId,
+      (row.productIds || []).join(", "),
+      row.status
+    ]) {
+      const td = document.createElement("td");
+      td.textContent = col;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+}
+
+const saved = localStorage.getItem(TOKEN_KEY);
+if (saved) {
+  $("#token").value = saved;
+  log("Loaded saved API key.");
+}
+$("#save-token").addEventListener("click", () => {
+  const token = $("#token").value.trim();
+  if (!token) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, token);
+  log("API key saved.");
+});
+
+$("#fetch").addEventListener("click", fetchAndExport);
+$("#download-products").addEventListener("click", downloadProductsCsv);
+$("#download-categories").addEventListener("click", downloadCategoriesCsv);
+$("#apply").addEventListener("click", applyToThinkific);
+$("#stop").addEventListener("click", () => {
+  stopRequested = true;
+  setStatus("Stopping…");
+  log("Stop requested.");
+});
+</script>
+</body>
+</html>
