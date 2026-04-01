@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific SSO tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/8.0.20/jsrsasign-all-min.js"></script>
+  <style>
+    :root[data-theme="dark"], :root:not([data-theme]) {
+      --bg:#0f172a; --card:#0b1220; --card2:#0a0f1a; --ink:#e5e7eb; --muted:#a1a1aa; --accent:#6366f1; --accent2:#22d3ee; --border:#232a3b;
+      --input-bg:#0a1220; --log-bg:#0a1220; --row-hover:#0f172a; --label:#cbd5e1; --email:#94a3b8; --pill-border:#263249; --shadow:rgba(0,0,0,.35);
+      --sec-btn:#1f2937;
+    }
+    :root[data-theme="light"] {
+      --bg:#f1f5f9; --card:#ffffff; --card2:#f8fafc; --ink:#0f172a; --muted:#64748b; --accent:#4f46e5; --accent2:#0891b2; --border:#e2e8f0;
+      --input-bg:#ffffff; --log-bg:#f8fafc; --row-hover:#f1f5f9; --label:#334155; --email:#64748b; --pill-border:#e2e8f0; --shadow:rgba(15,23,42,.08);
+      --sec-btn:#e2e8f0;
+    }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; transition: background .2s, color .2s }
+    .wrap { max-width:900px; margin:0 auto }
+    .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap }
+    .theme-toggle { flex:0 0 auto; padding:8px 14px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--ink); font-size:.9rem; font-weight:600; cursor:pointer }
+    .theme-toggle:hover { border-color:var(--accent) }
+    .card { background:linear-gradient(180deg, var(--card), var(--card2)); border:1px solid var(--border); border-radius:18px; padding:20px; box-shadow:0 10px 30px var(--shadow) }
+    h1 { margin:.2em 0 .5em; font-size:1.6rem }
+    h2 { margin:1em 0 .5em; font-size:1.1rem; color:var(--label); font-weight:600 }
+    .muted { color:var(--muted); font-size:.92rem }
+    label { display:block; margin-top:12px; font-size:.95rem; color:var(--label) }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input { width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--ink); box-sizing:border-box }
+    .row { display:flex; gap:12px; align-items:flex-end }
+    .row > * { flex:1 }
+    .btns { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap }
+    .btns button { flex:1; min-width:140px }
+    button { padding:12px 16px; border-radius:12px; border:0; background:var(--accent); color:white; font-weight:600; font-size:1rem; cursor:pointer }
+    button.secondary { background:var(--sec-btn); color: var(--ink); }
+    :root[data-theme="dark"] button.secondary, :root:not([data-theme]) button.secondary { color: #fff; }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:var(--label) }
+    .status.status-ok { color:#34d399 !important; font-weight:600 }
+    :root[data-theme="light"] .status.status-ok { color:#059669 !important }
+    .log { margin-top:12px; background:var(--log-bg); border:1px solid var(--border); border-radius:12px; padding:10px; font-size:.85rem; max-height:160px; overflow:auto; white-space:pre-wrap }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--pill-border); font-size:.75rem; color:var(--label) }
+    .meta { margin-top:8px; font-size:.95rem; color:var(--label) }
+    .meta strong { color:var(--ink) }
+    .user-list { max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; margin-top:8px; background:var(--input-bg) }
+    .user-row { padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); font-size:.9rem }
+    .user-row:last-child { border-bottom:0 }
+    .user-row:hover { background:var(--row-hover) }
+    .user-row.selected { background:rgba(99,102,241,.12); box-shadow:inset 3px 0 0 var(--accent) }
+    :root[data-theme="light"] .user-row.selected { background:rgba(79,70,229,.1) }
+    .user-email { color:var(--email); font-size:.82rem }
+    .copy-flash { animation: flash .6s ease }
+    @keyframes flash { from { color:var(--accent2) } to { color:var(--label) } }
+    .cache-banner { margin-top:10px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--log-bg); font-size:.88rem; color:var(--label); display:none }
+    .cache-banner.visible { display:block }
+    .list-cap-hint { margin-top:6px; font-size:.82rem; color:var(--muted) }
+    #url-fallback { margin-top:8px; font-size:.75rem; font-family: ui-monospace, monospace; word-break:break-all; display:none }
+    .copy-toast {
+      position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:9999;
+      padding:14px 22px; border-radius:14px; font-weight:600; font-size:.95rem; color:#fff;
+      background:linear-gradient(135deg,#059669,#10b981); box-shadow:0 8px 32px rgba(0,0,0,.35);
+      pointer-events:none; max-width:min(90vw,420px); text-align:center;
+      animation:toastPop .22s ease;
+    }
+    @keyframes toastPop { from { opacity:0; transform:translateX(-50%) translateY(10px) } to { opacity:1; transform:translateX(-50%) translateY(0) } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h1>Thinkific SSO tester</h1>
+          <div class="muted">Load users from GraphQL, pick someone, then <b>Copy link</b> (paste into a private/incognito window) or <b>Open in new tab</b>. JWT includes only first name, last name, email, and time—no extra claims.</div>
+        </div>
+        <button type="button" class="theme-toggle" id="theme-toggle" title="Switch light/dark">Light mode</button>
+      </div>
+
+      <h2>Credentials</h2>
+      <div class="row">
+        <label>GraphQL endpoint
+          <input id="endpoint" value="https://api.thinkific.com/stable/graphql" autocomplete="off">
+        </label>
+      </div>
+
+      <label>API key (Bearer)
+        <div class="token-save">
+          <input id="api-key" type="password" placeholder="Bearer token for GraphQL" autocomplete="off">
+          <button id="save-api-key" type="button" class="secondary">Save</button>
+        </div>
+      </label>
+
+      <label>SSO JWT secret (HS256)
+        <div class="token-save">
+          <input id="jwt-secret" type="password" placeholder="Signing secret from Thinkific SSO settings" autocomplete="off">
+          <button id="save-jwt-secret" type="button" class="secondary">Save</button>
+        </div>
+      </label>
+
+      <div class="btns">
+        <button id="load-users" type="button">Load users</button>
+        <button id="use-cache" type="button" class="secondary" disabled title="Load the last saved user list for this endpoint and API key">Use cached list</button>
+        <button id="clear-cache" type="button" class="secondary" disabled title="Remove cached users for this endpoint and API key">Forget cache</button>
+      </div>
+      <div id="cache-banner" class="cache-banner" role="status"></div>
+
+      <div class="progress"><div id="bar" class="bar indeterminate" style="width:0%"></div></div>
+      <div id="status" class="status">Enter credentials and click Load users.</div>
+      <div id="log" class="log"></div>
+
+      <div id="site-meta" class="meta" style="display:none"></div>
+
+      <h2 style="margin-top:20px">Users</h2>
+      <label>Search
+        <input id="search" type="search" placeholder="Filter by name or email…" disabled autocomplete="off">
+      </label>
+      <div id="user-list" class="user-list" aria-label="User list"></div>
+      <p id="list-cap-hint" class="list-cap-hint" style="display:none"></p>
+      <p id="empty-hint" class="muted" style="margin-top:8px">Load users to search and select.</p>
+
+      <div class="btns" style="margin-top:16px">
+        <button id="copy-link" type="button" class="secondary" disabled>Copy SSO link</button>
+        <button id="open-tab" type="button" disabled>Open in new tab</button>
+      </div>
+      <div id="url-fallback"></div>
+
+      <p class="muted" style="margin-top:20px">
+        <span class="pill">Private window</span> This page cannot open an incognito tab for you. Use <b>Copy SSO link</b> and paste the URL into a private window. <b>Open in new tab</b> uses your normal browser profile.
+      </p>
+      <p class="muted">
+        <span class="pill">CORS</span> This runs in the browser. If GraphQL fails with CORS, use a local server or CLI. Clipboard copy may require HTTPS or localhost.
+      </p>
+      <p class="muted">
+        <span class="pill">Storage</span> Saved keys live in this browser only. If the device is compromised, treat secrets as exposed.
+      </p>
+      <p class="muted">
+        <span class="pill">Cache</span> After a full load, the user list is saved for this endpoint + API key + SSO secret. If those match when you open the page, the list restores automatically. Use <b>Load users</b> to refresh from the API. Re-save secrets if you had an older cache without a secret fingerprint (run <b>Load users</b> once).
+      </p>
+    </div>
+  </div>
+
+  <div id="copy-toast" class="copy-toast" role="status" aria-live="polite" style="display:none"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const log = (m) => {
+  const el = $("#log");
+  el.textContent += (el.textContent ? "\n" : "") + m;
+  el.scrollTop = el.scrollHeight;
+};
+const setStatus = (t) => { $("#status").textContent = t; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const API_KEY_KEY = "thinkific-sso-tester-api-key";
+const JWT_SECRET_KEY = "thinkific-sso-tester-jwt-secret";
+const THEME_KEY = "thinkific-impersonation-theme";
+const USER_CACHE_KEY = "thinkific-impersonation-userlist-v1";
+const MAX_LIST_RENDER = 400;
+
+const QUERY_USERS_PAGE = `query SiteUsersPage($after: String) {
+  site {
+    subdomain
+    users(first: 100, after: $after) {
+      totalCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        firstName
+        lastName
+        email
+      }
+    }
+  }
+}`;
+
+function attachRateLimit(err, payload) {
+  if (payload && payload.extensions && payload.extensions.rateLimit) {
+    err.rateLimit = payload.extensions.rateLimit;
+  }
+}
+
+async function gql(endpoint, token, query, variables) {
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({ query, variables })
+  });
+
+  let json;
+  try {
+    json = await resp.json();
+  } catch (parseErr) {
+    if (!resp.ok) {
+      const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+      err.status = resp.status;
+      throw err;
+    }
+    throw new Error("Invalid JSON response.");
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  if (json.errors) {
+    const msg = json.errors.map((e) => e.message).join("; ");
+    const err = new Error("GraphQL error: " + msg);
+    err.graphQLErrors = json.errors;
+    const code = json.errors.find((e) => e.extensions && e.extensions.code)?.extensions.code;
+    if (code) err.code = code;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  return json.data;
+}
+
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.code === "RATE_LIMITED") return true;
+  if (Array.isArray(err.graphQLErrors)) {
+    return err.graphQLErrors.some((e) => e.extensions && e.extensions.code === "RATE_LIMITED");
+  }
+  return typeof err.message === "string" && err.message.toLowerCase().includes("rate limit");
+}
+
+function getRateLimitWait(err) {
+  const fallbackMs = 60 * 1000;
+  const rl = err && err.rateLimit;
+  if (rl && rl.resetAt) {
+    const resetAtMs = new Date(rl.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) {
+        return {
+          waitMs: Math.min(diff, 5 * 60 * 1000),
+          resetAt: rl.resetAt
+        };
+      }
+    }
+  }
+  return { waitMs: fallbackMs, resetAt: rl && rl.resetAt };
+}
+
+let allUsers = [];
+let subdomain = "";
+let totalCountReported = null;
+let selectedUser = null;
+let searchDebounceTimer = null;
+
+function cacheFingerprint(endpoint, token) {
+  let h = 5381;
+  const s = endpoint + "\0" + token;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) ^ s.charCodeAt(i);
+  }
+  return "fp" + (h >>> 0).toString(16);
+}
+
+function jwtSecretFingerprint(secret) {
+  let h = 5381;
+  const s = String(secret || "");
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) ^ s.charCodeAt(i);
+  }
+  return "j" + (h >>> 0).toString(16);
+}
+
+function readUserListCache() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  const jwtSecret = $("#jwt-secret").value.trim();
+  if (!endpoint || !token || !jwtSecret) return null;
+  const key = USER_CACHE_KEY + ":" + cacheFingerprint(endpoint, token);
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw);
+    if (o.v !== 1 || !Array.isArray(o.users) || !o.subdomain) return null;
+    if (!o.jwtFp || o.jwtFp !== jwtSecretFingerprint(jwtSecret)) return null;
+    return o;
+  } catch {
+    return null;
+  }
+}
+
+function saveUserListCache() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  const jwtSecret = $("#jwt-secret").value.trim();
+  if (!endpoint || !token || !jwtSecret || !subdomain || allUsers.length === 0) return;
+  const key = USER_CACHE_KEY + ":" + cacheFingerprint(endpoint, token);
+  const payload = {
+    v: 1,
+    jwtFp: jwtSecretFingerprint(jwtSecret),
+    subdomain: subdomain,
+    totalCount: totalCountReported,
+    users: allUsers,
+    fetchedAt: Date.now()
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch (e) {
+    console.warn(e);
+    log("Could not save user cache (storage quota?). Try a smaller site or clear old cache.");
+  }
+}
+
+function clearUserListCacheForCredentials() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  if (!endpoint || !token) return;
+  const key = USER_CACHE_KEY + ":" + cacheFingerprint(endpoint, token);
+  localStorage.removeItem(key);
+}
+
+function updateCacheControls() {
+  const cached = readUserListCache();
+  const banner = $("#cache-banner");
+  const useBtn = $("#use-cache");
+  const clearBtn = $("#clear-cache");
+  if (cached && cached.users && cached.users.length) {
+    useBtn.disabled = false;
+    clearBtn.disabled = false;
+    banner.classList.add("visible");
+    const when = new Date(cached.fetchedAt).toLocaleString();
+    banner.textContent =
+      "Cache available: " +
+      cached.users.length +
+      " users (saved " +
+      when +
+      "). Use “Use cached list” to load without calling the API.";
+  } else {
+    useBtn.disabled = true;
+    clearBtn.disabled = true;
+    banner.classList.remove("visible");
+    banner.textContent = "";
+  }
+}
+
+function finalizeUserListUI(fromCache) {
+  $("#site-meta").style.display = "block";
+  $("#site-meta").innerHTML =
+    "Site subdomain: <strong>" +
+    escapeHtml(subdomain) +
+    "</strong>" +
+    (totalCountReported != null ? " · totalCount: <strong>" + totalCountReported + "</strong>" : "") +
+    " · loaded: <strong>" +
+    allUsers.length +
+    "</strong>" +
+    (fromCache ? " · <em>from cache</em>" : "");
+
+  $("#search").disabled = false;
+  $("#empty-hint").textContent = allUsers.length ? "Click a row to select." : "No users returned.";
+  $("#search").value = "";
+  $("#url-fallback").style.display = "none";
+  selectedUser = null;
+  updateActionButtons();
+  renderUserList();
+  setBarPct(100);
+  setStatus(
+    fromCache
+      ? "Ready (cached) — " + allUsers.length + " user(s). Select one to copy or open SSO."
+      : "Ready — " + allUsers.length + " user(s). Select one to copy or open SSO."
+  );
+}
+
+function restoreFromCache() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  if (!endpoint || !token) {
+    alert("GraphQL endpoint and API key are required.");
+    return;
+  }
+  const c = readUserListCache();
+  if (!c) {
+    alert("No cache for this endpoint and API key.");
+    updateCacheControls();
+    return;
+  }
+  allUsers = c.users;
+  subdomain = String(c.subdomain || "").trim();
+  totalCountReported = typeof c.totalCount === "number" ? c.totalCount : null;
+  selectedUser = null;
+  finalizeUserListUI(true);
+  log("Loaded " + allUsers.length + " users from cache.");
+}
+
+function initTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === "light" || stored === "dark") {
+    applyTheme(stored);
+    return;
+  }
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+    applyTheme("light");
+  } else {
+    applyTheme("dark");
+  }
+}
+
+function applyTheme(theme) {
+  if (theme !== "light" && theme !== "dark") theme = "dark";
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem(THEME_KEY, theme);
+  const btn = $("#theme-toggle");
+  if (btn) btn.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+}
+
+function setBarIndeterminate(on) {
+  const b = $("#bar");
+  if (on) {
+    b.classList.add("indeterminate");
+    b.style.width = "100%";
+  } else {
+    b.classList.remove("indeterminate");
+  }
+}
+
+function setBarPct(pct) {
+  const b = $("#bar");
+  b.classList.remove("indeterminate");
+  b.style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+
+function getFilteredUsers() {
+  const q = $("#search").value.trim().toLowerCase();
+  if (!q) return allUsers;
+  return allUsers.filter((u) => {
+    const fn = (u.firstName || "").toLowerCase();
+    const ln = (u.lastName || "").toLowerCase();
+    const em = (u.email || "").toLowerCase();
+    return fn.includes(q) || ln.includes(q) || em.includes(q);
+  });
+}
+
+function renderUserList() {
+  const list = $("#user-list");
+  const capHint = $("#list-cap-hint");
+  const rowsAll = getFilteredUsers();
+  const total = rowsAll.length;
+  list.innerHTML = "";
+  if (total === 0) {
+    capHint.style.display = "none";
+    capHint.textContent = "";
+    list.innerHTML = '<div class="user-row muted">No users match.</div>';
+    return;
+  }
+  const capped = total > MAX_LIST_RENDER;
+  const rows = capped ? rowsAll.slice(0, MAX_LIST_RENDER) : rowsAll;
+  if (capped) {
+    capHint.style.display = "block";
+    capHint.textContent =
+      "Showing first " + MAX_LIST_RENDER + " of " + total + " matches — refine search to narrow the list.";
+  } else {
+    capHint.style.display = "none";
+    capHint.textContent = "";
+  }
+  for (const u of rows) {
+    const div = document.createElement("div");
+    div.className = "user-row";
+    if (selectedUser && selectedUser === u) div.classList.add("selected");
+    const name = [u.firstName || "", u.lastName || ""].filter(Boolean).join(" ") || "(no name)";
+    div.innerHTML = '<div>' + escapeHtml(name) + '</div><div class="user-email">' + escapeHtml(u.email || "") + "</div>";
+    div.addEventListener("click", () => {
+      selectedUser = u;
+      document.querySelectorAll(".user-row").forEach((el) => el.classList.remove("selected"));
+      div.classList.add("selected");
+      updateActionButtons();
+    });
+    list.appendChild(div);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildJwtAndUrl() {
+  const secret = $("#jwt-secret").value.trim();
+  const sub = subdomain.trim();
+  if (!secret || !sub) return null;
+  if (!selectedUser) return null;
+  const firstName = (selectedUser.firstName || "").trim();
+  const lastName = (selectedUser.lastName || "").trim();
+  const email = (selectedUser.email || "").trim();
+  if (!email) return null;
+
+  const iat = Math.floor(Date.now() / 1000);
+  const header = { alg: "HS256", typ: "JWT" };
+  const payload = {
+    first_name: firstName,
+    last_name: lastName,
+    email: email,
+    iat: iat
+  };
+  let jwt;
+  try {
+    jwt = KJUR.jws.JWS.sign("HS256", JSON.stringify(header), JSON.stringify(payload), { utf8: secret });
+  } catch (e) {
+    console.warn(e);
+    return null;
+  }
+  const ssoURL = "https://" + sub + ".thinkific.com/api/sso/v2/sso/jwt?jwt=" + encodeURIComponent(jwt);
+  return { jwt, ssoURL };
+}
+
+function updateActionButtons() {
+  let ok = false;
+  try {
+    ok = !!buildJwtAndUrl();
+  } catch (e) {
+    ok = false;
+  }
+  $("#copy-link").disabled = !ok;
+  $("#open-tab").disabled = !ok;
+}
+
+function copyTextWithFallback(text) {
+  const useClipboardApi =
+    window.isSecureContext &&
+    navigator.clipboard &&
+    typeof navigator.clipboard.writeText === "function";
+  if (useClipboardApi) {
+    return navigator.clipboard.writeText(text).then(
+      function onClipOk() {
+        return true;
+      },
+      function onClipFail() {
+        return copyTextExecCommand(text);
+      }
+    );
+  }
+  return Promise.resolve(copyTextExecCommand(text));
+}
+
+let copyToastTimer = null;
+function showCopySuccess() {
+  const msg = "Copied SSO link to clipboard.";
+  setStatus(msg);
+  const st = $("#status");
+  st.classList.add("copy-flash", "status-ok");
+  setTimeout(function () {
+    st.classList.remove("copy-flash", "status-ok");
+  }, 900);
+  log(msg);
+  const toast = $("#copy-toast");
+  toast.textContent = msg;
+  toast.style.display = "block";
+  if (copyToastTimer) clearTimeout(copyToastTimer);
+  copyToastTimer = setTimeout(function () {
+    toast.style.display = "none";
+    toast.textContent = "";
+  }, 2800);
+}
+
+function copyTextExecCommand(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  ta.style.top = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  if (ta.setSelectionRange) {
+    ta.setSelectionRange(0, text.length);
+  }
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (e) {
+    console.warn(e);
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+async function loadUsers() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  if (!endpoint || !token) {
+    alert("GraphQL endpoint and API key are required.");
+    return;
+  }
+
+  $("#load-users").disabled = true;
+  $("#use-cache").disabled = true;
+  $("#clear-cache").disabled = true;
+  $("#log").textContent = "";
+  setBarIndeterminate(true);
+  setStatus("Loading…");
+  allUsers = [];
+  subdomain = "";
+  totalCountReported = null;
+  selectedUser = null;
+  $("#site-meta").style.display = "none";
+  $("#search").disabled = true;
+  $("#empty-hint").textContent = "";
+  $("#user-list").innerHTML = "";
+  $("#url-fallback").style.display = "none";
+  updateActionButtons();
+
+  let after = null;
+  let page = 0;
+
+  try {
+    while (true) {
+      const targetPage = page + 1;
+      setStatus("Fetching users (page " + targetPage + ")…");
+      log("Requesting page " + targetPage + "…");
+
+      let data;
+      try {
+        data = await gql(endpoint, token, QUERY_USERS_PAGE, { after });
+      } catch (err) {
+        if (isRateLimitError(err)) {
+          const { waitMs, resetAt } = getRateLimitWait(err);
+          const safeWaitMs = Math.max(1000, waitMs || 0);
+          const waitSeconds = Math.ceil(safeWaitMs / 1000);
+          const resetNote = resetAt ? " (reset at " + resetAt + ")" : "";
+          setStatus("Rate limited. Waiting " + waitSeconds + "s" + resetNote + "…");
+          log("Rate limit. Waiting " + waitSeconds + "s" + resetNote + "…");
+          setBarIndeterminate(true);
+          await sleep(safeWaitMs);
+          continue;
+        }
+        throw err;
+      }
+
+      page = targetPage;
+      const site = data && data.site;
+      if (!site || !site.users) throw new Error("Unexpected response shape.");
+
+      if (!subdomain && site.subdomain) {
+        subdomain = String(site.subdomain).trim();
+      }
+
+      const usersConn = site.users;
+      if (totalCountReported == null && typeof usersConn.totalCount === "number") {
+        totalCountReported = usersConn.totalCount;
+      }
+
+      const nodes = usersConn.nodes || [];
+      for (const n of nodes) {
+        allUsers.push({
+          firstName: n.firstName,
+          lastName: n.lastName,
+          email: n.email
+        });
+      }
+
+      const pct =
+        totalCountReported && totalCountReported > 0
+          ? Math.min(100, (allUsers.length / totalCountReported) * 100)
+          : Math.min(100, page * 5);
+      setBarPct(pct);
+      setStatus("Loaded " + allUsers.length + (totalCountReported != null ? " / " + totalCountReported : "") + " users…");
+
+      const pi = usersConn.pageInfo;
+      if (pi && pi.hasNextPage && pi.endCursor) {
+        after = pi.endCursor;
+      } else {
+        break;
+      }
+    }
+
+    if (!subdomain) {
+      throw new Error("GraphQL did not return site.subdomain.");
+    }
+
+    finalizeUserListUI(false);
+    saveUserListCache();
+    updateCacheControls();
+    log("Done.");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + err.message);
+    log("Error: " + err.message);
+    setBarPct(0);
+  } finally {
+    $("#load-users").disabled = false;
+    setBarIndeterminate(false);
+    updateCacheControls();
+  }
+}
+
+function copySsoLink() {
+  let built;
+  try {
+    built = buildJwtAndUrl();
+  } catch (e) {
+    console.error(e);
+    setStatus("Could not build SSO link: " + (e.message || String(e)));
+    return;
+  }
+  if (!built) {
+    setStatus("Select a user with email, and ensure SSO secret and site data are loaded.");
+    return;
+  }
+  const { ssoURL } = built;
+  const fb = $("#url-fallback");
+  fb.style.display = "none";
+  fb.textContent = "";
+
+  copyTextWithFallback(ssoURL)
+    .then(function (ok) {
+      if (ok) {
+        showCopySuccess();
+        return;
+      }
+      fb.style.display = "block";
+      fb.textContent = ssoURL;
+      setStatus("Automatic copy failed — copy the URL below.");
+    })
+    .catch(function (e) {
+      console.warn(e);
+      if (copyTextExecCommand(ssoURL)) {
+        showCopySuccess();
+      } else {
+        fb.style.display = "block";
+        fb.textContent = ssoURL;
+        setStatus("Copy failed — select the URL below.");
+      }
+    });
+}
+
+function openSsoTab() {
+  const built = buildJwtAndUrl();
+  if (!built) return;
+  const w = window.open(built.ssoURL, "_blank", "noopener,noreferrer");
+  if (!w) {
+    setStatus("Popup blocked — use Copy SSO link and paste in the address bar.");
+  }
+}
+
+$("#load-users").addEventListener("click", loadUsers);
+$("#use-cache").addEventListener("click", restoreFromCache);
+$("#clear-cache").addEventListener("click", () => {
+  clearUserListCacheForCredentials();
+  updateCacheControls();
+  log("Removed cached user list for this endpoint + API key.");
+});
+$("#theme-toggle").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(cur === "dark" ? "light" : "dark");
+});
+$("#search").addEventListener("input", () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    searchDebounceTimer = null;
+    renderUserList();
+  }, 120);
+});
+$("#endpoint").addEventListener("input", updateCacheControls);
+$("#api-key").addEventListener("input", updateCacheControls);
+$("#jwt-secret").addEventListener("input", updateCacheControls);
+$("#copy-link").addEventListener("click", copySsoLink);
+$("#open-tab").addEventListener("click", openSsoTab);
+
+$("#save-api-key").addEventListener("click", () => {
+  const v = $("#api-key").value.trim();
+  if (!v) {
+    alert("Enter an API key before saving.");
+    return;
+  }
+  localStorage.setItem(API_KEY_KEY, v);
+  log("API key saved on this device.");
+});
+
+$("#save-jwt-secret").addEventListener("click", () => {
+  const v = $("#jwt-secret").value.trim();
+  if (!v) {
+    alert("Enter the JWT secret before saving.");
+    return;
+  }
+  localStorage.setItem(JWT_SECRET_KEY, v);
+  log("SSO JWT secret saved on this device.");
+});
+
+const savedKey = localStorage.getItem(API_KEY_KEY);
+if (savedKey) {
+  $("#api-key").value = savedKey;
+  log("Loaded saved API key.");
+}
+const savedSecret = localStorage.getItem(JWT_SECRET_KEY);
+if (savedSecret) {
+  $("#jwt-secret").value = savedSecret;
+  log("Loaded saved JWT secret.");
+}
+
+initTheme();
+updateCacheControls();
+
+function tryAutoLoadCacheOnBoot() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#api-key").value.trim();
+  const jwtSecret = $("#jwt-secret").value.trim();
+  if (!endpoint || !token || !jwtSecret) return;
+  const c = readUserListCache();
+  if (!c || !c.users || !c.users.length) return;
+  allUsers = c.users;
+  subdomain = String(c.subdomain || "").trim();
+  totalCountReported = typeof c.totalCount === "number" ? c.totalCount : null;
+  selectedUser = null;
+  finalizeUserListUI(true);
+  log("Restored " + allUsers.length + " users from cache (saved credentials match).");
+  updateCacheControls();
+}
+
+tryAutoLoadCacheOnBoot();
+</script>
+</body>
+</html>
