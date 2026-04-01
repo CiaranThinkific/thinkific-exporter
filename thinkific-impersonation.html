@@ -94,6 +94,7 @@
         <div class="token-save">
           <input id="api-key" type="password" placeholder="Bearer token for GraphQL" autocomplete="off">
           <button id="save-api-key" type="button" class="secondary">Save</button>
+          <button id="clear-api-key" type="button" class="secondary" title="Remove saved key from this browser">Delete</button>
         </div>
       </label>
 
@@ -101,6 +102,7 @@
         <div class="token-save">
           <input id="jwt-secret" type="password" placeholder="Signing secret from Thinkific SSO settings" autocomplete="off">
           <button id="save-jwt-secret" type="button" class="secondary">Save</button>
+          <button id="clear-jwt-secret" type="button" class="secondary" title="Remove saved secret from this browser">Delete</button>
         </div>
       </label>
 
@@ -798,6 +800,44 @@ $("#save-jwt-secret").addEventListener("click", () => {
   }
   localStorage.setItem(JWT_SECRET_KEY, v);
   log("SSO JWT secret saved on this device.");
+});
+
+function resetLoadedUserStateAfterApiKeyRemoved() {
+  allUsers = [];
+  subdomain = "";
+  totalCountReported = null;
+  selectedUser = null;
+  $("#site-meta").style.display = "none";
+  $("#search").disabled = true;
+  $("#search").value = "";
+  $("#user-list").innerHTML = "";
+  const cap = $("#list-cap-hint");
+  if (cap) {
+    cap.style.display = "none";
+    cap.textContent = "";
+  }
+  $("#empty-hint").textContent = "Load users to search and select.";
+  $("#url-fallback").style.display = "none";
+  setBarPct(0);
+  updateActionButtons();
+  setStatus("Saved API key removed. Enter a key and load users.");
+}
+
+$("#clear-api-key").addEventListener("click", () => {
+  localStorage.removeItem(API_KEY_KEY);
+  $("#api-key").value = "";
+  resetLoadedUserStateAfterApiKeyRemoved();
+  updateCacheControls();
+  log("Saved API key deleted from this browser.");
+});
+
+$("#clear-jwt-secret").addEventListener("click", () => {
+  localStorage.removeItem(JWT_SECRET_KEY);
+  $("#jwt-secret").value = "";
+  updateActionButtons();
+  updateCacheControls();
+  setStatus("Saved SSO secret removed from this browser.");
+  log("Saved SSO JWT secret deleted from this browser.");
 });
 
 const savedKey = localStorage.getItem(API_KEY_KEY);
