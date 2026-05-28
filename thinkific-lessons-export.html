@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Lessons Export</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241 }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink); box-sizing:border-box }
+    .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end }
+    .row > label { flex:1 1 220px; min-width:220px; display:flex; flex-direction:column }
+    .btns { display:flex; gap:12px; margin-top:16px }
+    button { flex:1; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:200px; overflow:auto; white-space:pre-wrap }
+    .table-resize { margin-top:16px; border:1px solid #263249; border-radius:14px; background:#0a1220; overflow:hidden; min-height:240px; width:1600px; padding:0 20px 20px 0; position:relative }
+    .table-resize-handle { position:absolute; right:6px; bottom:6px; width:18px; height:18px; cursor:se-resize }
+    .table-resize-handle::after { content:""; position:absolute; right:2px; bottom:2px; width:12px; height:12px; border-right:2px solid rgba(203,213,225,.6); border-bottom:2px solid rgba(203,213,225,.6) }
+    .table-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; margin:0 -20px -20px 0 }
+    .table-toolbar { display:flex; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #263249; background:rgba(15,23,42,.6) }
+    .table-toolbar .muted { font-size:.85rem }
+    .table-toolbar button { flex:0 0 auto; padding:8px 12px; font-size:.85rem; border-radius:10px }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; table-layout:auto }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2a3e; vertical-align:top; white-space:nowrap; max-width:300px; overflow:hidden; text-overflow:ellipsis }
+    th { background:#0b1324; position:sticky; top:0; z-index:1; text-align:left }
+    th.dragging { opacity:.6 }
+    th .col-label { display:flex; align-items:center; gap:8px; cursor:grab }
+    .filter-wrap { margin-top:6px }
+    details.filter { position:relative }
+    details.filter summary { list-style:none; cursor:pointer; font-size:.75rem; color:#cbd5e1; border:1px solid #1f2a3e; padding:4px 8px; border-radius:8px; background:#0b1324 }
+    details.filter summary::-webkit-details-marker { display:none }
+    .filter-popover { position:absolute; top:28px; left:0; z-index:5; background:#0b1324; border:1px solid #1f2a3e; border-radius:10px; padding:8px; min-width:220px; max-height:260px; overflow:auto; box-shadow:0 10px 24px rgba(0,0,0,.35) }
+    .filter-actions { display:flex; gap:6px; margin-bottom:8px }
+    .filter-actions button { flex:1; padding:6px 8px; font-size:.72rem; border-radius:8px; border:1px solid #1f2a3e; background:#0a1220; color:#cbd5e1; cursor:pointer }
+    .filter-option { display:flex; align-items:center; gap:6px; font-size:.78rem; padding:2px 0 }
+    .filter-option input { width:auto }
+    .table-scroll { flex:1; min-height:200px; overflow:auto }
+    .empty { padding:14px; color:var(--muted); font-size:.9rem }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+            <div class="brand-tag">Lessons Export</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Lessons Export</h1>
+      <div class="muted">Discovers every lesson, then fetches <code>lesson(id)</code> with a <b>type-specific</b> content query (video, quiz, text, etc.). Quiz questions go in <code>quiz_questions_json</code>. Use <b>Clear Schema Cache</b> after updates.</div>
+
+      <div class="row">
+        <label>GraphQL Endpoint
+          <input id="endpoint" value="https://api.thinkific.com/stable/graphql">
+        </label>
+        <label>Output File
+          <input id="outfile" value="thinkific-lessons.csv">
+        </label>
+      </div>
+
+      <label>Bearer Token (saved on this device)
+        <div class="token-save">
+          <input id="token" type="password" placeholder="Paste your API token here">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+
+      <div class="row">
+        <label>Course ID Filter <span style="font-size:.8rem;color:var(--muted)">(optional)</span>
+          <input id="course-id" placeholder="e.g. 12345">
+        </label>
+        <label>Strip HTML tags
+          <select id="strip-html">
+            <option value="yes" selected>Yes — plain text in HTML fields</option>
+            <option value="no">No — keep raw HTML</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="btns">
+        <button id="start">Export All Lessons</button>
+        <button id="download" class="secondary" disabled>Download CSV</button>
+        <button id="clear-cache" type="button" class="secondary">Clear Schema Cache</button>
+      </div>
+
+      <div class="progress"><div id="bar" class="bar indeterminate"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <div class="table-resize" id="table-resize">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="muted" id="table-meta">No results yet.</div>
+            <div style="flex:1"></div>
+            <button id="reset-columns" type="button" class="secondary" disabled>Reset Columns</button>
+          </div>
+          <div class="table-scroll">
+            <table id="results-table" aria-live="polite"></table>
+          </div>
+          <div id="table-empty" class="empty">Run an export to see results.</div>
+        </div>
+        <div class="table-resize-handle" id="table-resize-handle" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => {
+  const el = $("#log");
+  el.textContent += (el.textContent ? "\n" : "") + m;
+  el.scrollTop = el.scrollHeight;
+};
+const setStatus = (t) => { $("#status").textContent = t; };
+const setBar = (pct) => {
+  const b = $("#bar");
+  b.classList.remove("indeterminate");
+  b.style.width = Math.max(0, Math.min(100, pct)) + "%";
+};
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const LESSON_BATCH_SIZE = 5;
+const LESSONS_PAGE_SIZE = 100;
+const COURSES_PAGE_SIZE = 10;
+const CHAPTERS_PAGE_SIZE = 100;
+
+const CONTENT_TYPE_SPECS = {
+  AssignmentContent: ["confirmationMessage", "fileSizeLimit"],
+  AudioContent: ["htmlDescription", "url"],
+  DownloadContent: ["htmlDescription"],
+  ExamContent: [],
+  LiveContent: [],
+  MultimediaContent: ["url"],
+  PdfContent: ["url"],
+  PresentationContent: ["sourceUrl"],
+  QuizContent: [],
+  SurveyContent: [],
+  TextContent: ["htmlDescription"],
+  VideoContent: ["durationInSeconds", "fileName", "fileSize", "fileType", "htmlDescription", "playUrl", "thumbnail", "url", "videoId"]
+};
+
+const VIDEO_CAPTION_FIELDS = ["content", "downloadUrl", "languageCode", "languageLabel"];
+const QUIZ_QUESTION_FIELDS = ["prompt", "textExplanation"];
+const QUIZ_CHOICE_FIELDS = ["text", "correct"];
+const QUIZ_QUESTIONS_PAGE_SIZE = 100;
+const QUIZ_CHOICES_FIRST = 10;
+const SHARED_CONTENT_FIELDS = ["id", "updatedAt", "createdAt", "contentType"];
+const COURSE_FIELDS = ["id", "name", "slug", "title", "description"];
+
+function shouldStripHtml() {
+  return $("#strip-html").value !== "no";
+}
+
+function stripHtml(html) {
+  if (html === null || html === undefined) return "";
+  if (typeof html !== "string") return String(html);
+  if (!html.trim()) return "";
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  } catch {
+    return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  }
+}
+
+function maybeStripHtml(value) {
+  if (!shouldStripHtml()) return value === null || value === undefined ? "" : String(value);
+  return stripHtml(value);
+}
+
+const QUERY_INTROSPECT_TYPE = (typeName) => `query Introspect_${typeName.replace(/[^a-zA-Z0-9_]/g, "_")} {
+  __type(name: "${typeName}") {
+    fields { name type { name kind ofType { name kind } } }
+  }
+}`;
+
+// ---------------------------------------------------------------------------
+// GraphQL helpers
+// ---------------------------------------------------------------------------
+
+function attachRateLimit(err, payload) {
+  if (payload?.extensions?.rateLimit) err.rateLimit = payload.extensions.rateLimit;
+}
+
+const RATE_LIMIT_WAIT_MS = 60 * 1000;
+
+async function gql(endpoint, token, query, variables) {
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ query, variables: variables || {} })
+  });
+
+  let json;
+  try { json = await resp.json(); }
+  catch {
+    if (!resp.ok) throw new Error("HTTP " + resp.status + " - " + resp.statusText);
+    throw new Error("Invalid JSON response.");
+  }
+
+  const rateLimit = json?.extensions?.rateLimit;
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  if (json.errors) {
+    const msg = json.errors.map(e => e.message).join("; ");
+    const err = new Error("GraphQL error: " + msg);
+    err.graphQLErrors = json.errors;
+    const code = json.errors.find(e => e.extensions?.code)?.extensions?.code;
+    if (code) err.code = code;
+    const has429 = json.errors.some(e =>
+      e.extensions?.response?.status === 429 ||
+      /429|too many requests/i.test(String(e.message || ""))
+    );
+    if (has429 || /429|too many requests/i.test(msg)) err.status = 429;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  return { data: json.data, rateLimit };
+}
+
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.status === 429) return true;
+  if (err.code === "RATE_LIMITED") return true;
+  if (Array.isArray(err.graphQLErrors)) {
+    if (err.graphQLErrors.some(e => e.extensions?.code === "RATE_LIMITED")) return true;
+    if (err.graphQLErrors.some(e => e.extensions?.response?.status === 429)) return true;
+  }
+  const msg = typeof err.message === "string" ? err.message.toLowerCase() : "";
+  return msg.includes("rate limit") || msg.includes("429") || msg.includes("too many requests");
+}
+
+function getRateLimitWait(err) {
+  const rl = err?.rateLimit;
+  let waitMs = RATE_LIMIT_WAIT_MS;
+  let resetAt = rl?.resetAt;
+  if (rl?.resetAt) {
+    const resetAtMs = new Date(rl.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) waitMs = Math.max(RATE_LIMIT_WAIT_MS, Math.min(diff, 5 * 60 * 1000));
+    }
+  }
+  return { waitMs, resetAt };
+}
+
+async function cooldownFromRateLimit(rateLimit) {
+  if (!rateLimit || rateLimit.remaining == null || !rateLimit.limit) return;
+  const remaining = Number(rateLimit.remaining);
+  const limit = Number(rateLimit.limit);
+  const threshold = 250;
+  if (remaining >= threshold) return;
+
+  let waitMs = RATE_LIMIT_WAIT_MS;
+  if (rateLimit.resetAt) {
+    const resetAtMs = new Date(rateLimit.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) waitMs = Math.max(RATE_LIMIT_WAIT_MS, Math.min(diff, 5 * 60 * 1000));
+    }
+  }
+  const waitSeconds = Math.ceil(waitMs / 1000);
+  setStatus("Cooldown: " + remaining + " / " + limit + " points left. Waiting " + waitSeconds + "s…");
+  log("Rate limit low (" + remaining + " / " + limit + "). Waiting " + waitSeconds + "s…");
+  $("#bar").classList.add("indeterminate");
+  await sleep(waitMs);
+}
+
+async function gqlWithRetry(endpoint, token, query, variables) {
+  while (true) {
+    try {
+      const result = await gql(endpoint, token, query, variables);
+      if (result.rateLimit) await cooldownFromRateLimit(result.rateLimit);
+      return result.data;
+    } catch (err) {
+      if (isRateLimitError(err)) {
+        const { waitMs, resetAt } = getRateLimitWait(err);
+        const note = resetAt ? " (reset at " + resetAt + ")" : "";
+        setStatus("Rate limited (429). Waiting " + Math.ceil(waitMs / 1000) + "s" + note + " — will retry…");
+        log("429 / rate limit. Waiting " + Math.ceil(waitMs / 1000) + "s, then retrying same request…");
+        $("#bar").classList.add("indeterminate");
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CSV + table
+// ---------------------------------------------------------------------------
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+const COLUMN_DEFS = [
+  { id: "course_id", label: "course_id", get: r => r.course_id },
+  { id: "course_name", label: "course_name", get: r => r.course_name },
+  { id: "course_slug", label: "course_slug", get: r => r.course_slug },
+  { id: "course_title", label: "course_title", get: r => r.course_title },
+  { id: "course_description", label: "course_description", get: r => r.course_description },
+  { id: "chapter_id", label: "chapter_id", get: r => r.chapter_id },
+  { id: "chapter_name", label: "chapter_name", get: r => r.chapter_name },
+  { id: "lesson_id", label: "lesson_id", get: r => r.lesson_id },
+  { id: "lesson_title", label: "lesson_title", get: r => r.lesson_title },
+  { id: "lesson_type", label: "lesson_type", get: r => r.lesson_type },
+  { id: "content_type", label: "content_type", get: r => r.content_type },
+  { id: "content_id", label: "content_id", get: r => r.content_id },
+  { id: "content_created_at", label: "content_created_at", get: r => r.content_created_at },
+  { id: "content_updated_at", label: "content_updated_at", get: r => r.content_updated_at },
+  { id: "confirmation_message", label: "confirmation_message", get: r => r.confirmation_message },
+  { id: "file_size_limit", label: "file_size_limit", get: r => r.file_size_limit },
+  { id: "html_description", label: "html_description", get: r => r.html_description },
+  { id: "url", label: "url", get: r => r.url },
+  { id: "play_url", label: "play_url", get: r => r.play_url },
+  { id: "source_url", label: "source_url", get: r => r.source_url },
+  { id: "duration_seconds", label: "duration_seconds", get: r => r.duration_seconds },
+  { id: "file_name", label: "file_name", get: r => r.file_name },
+  { id: "file_size", label: "file_size", get: r => r.file_size },
+  { id: "file_type", label: "file_type", get: r => r.file_type },
+  { id: "thumbnail", label: "thumbnail", get: r => r.thumbnail },
+  { id: "video_id", label: "video_id", get: r => r.video_id },
+  { id: "video_captions_json", label: "video_captions_json", get: r => r.video_captions_json },
+  { id: "quiz_name", label: "quiz_name", get: r => r.quiz_name },
+  { id: "quiz_questions_json", label: "quiz_questions_json", get: r => r.quiz_questions_json }
+];
+
+function getColumnById(id) { return COLUMN_DEFS.find(c => c.id === id); }
+
+function toCSV(rows, order) {
+  const ids = Array.isArray(order) && order.length ? order : COLUMN_DEFS.map(c => c.id);
+  const cols = ids.map(id => getColumnById(id)).filter(Boolean);
+  const lines = [cols.map(c => c.id).map(csvEscape).join(",")];
+  for (const r of rows) {
+    lines.push(cols.map(c => c.get(r)).map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
+
+let tableRows = [];
+const COLUMN_ORDER_KEY = "thinkific-lessons-export-column-order";
+let columnOrder = COLUMN_DEFS.map(c => c.id);
+const filters = {};
+
+function loadColumnOrder() {
+  const saved = localStorage.getItem(COLUMN_ORDER_KEY);
+  if (!saved) return;
+  try {
+    const parsed = JSON.parse(saved);
+    const ids = new Set(COLUMN_DEFS.map(c => c.id));
+    if (!Array.isArray(parsed)) return;
+    const next = parsed.filter(id => ids.has(id));
+    for (const id of ids) { if (!next.includes(id)) next.push(id); }
+    columnOrder = next;
+  } catch { /* ignore */ }
+}
+
+function saveColumnOrder() { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); }
+function resetColumns() { columnOrder = COLUMN_DEFS.map(c => c.id); saveColumnOrder(); renderTable(); }
+
+function applyFilters(rows) {
+  const active = Object.entries(filters).filter(([, v]) => v instanceof Set);
+  if (!active.length) return rows;
+  return rows.filter(row =>
+    active.every(([colId, set]) => {
+      const col = getColumnById(colId);
+      return col && set.size > 0 && set.has(String(col.get(row) || ""));
+    })
+  );
+}
+
+function getColumnValues(colId) {
+  const col = getColumnById(colId);
+  if (!col) return [];
+  const set = new Set();
+  for (const row of tableRows) set.add(String(col.get(row) || ""));
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function renderTable() {
+  const table = $("#results-table");
+  const empty = $("#table-empty");
+  const meta = $("#table-meta");
+  table.innerHTML = "";
+
+  if (!tableRows.length) {
+    empty.style.display = "block";
+    meta.textContent = "No results yet.";
+    return;
+  }
+
+  const filtered = applyFilters(tableRows);
+  meta.textContent = filtered.length + " of " + tableRows.length + " rows";
+  empty.style.display = filtered.length ? "none" : "block";
+  empty.textContent = filtered.length ? "" : "No results match your filters.";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const colId of columnOrder) {
+    const col = getColumnById(colId);
+    if (!col) continue;
+    const th = document.createElement("th");
+    th.setAttribute("draggable", "true");
+    th.dataset.colId = colId;
+    const label = document.createElement("div");
+    label.className = "col-label";
+    const text = document.createElement("span");
+    text.textContent = col.label;
+    label.appendChild(text);
+    th.appendChild(label);
+
+    const filterWrap = document.createElement("div");
+    filterWrap.className = "filter-wrap";
+    const details = document.createElement("details");
+    details.className = "filter";
+    const summary = document.createElement("summary");
+    summary.textContent = "Filter";
+    details.appendChild(summary);
+    const pop = document.createElement("div");
+    pop.className = "filter-popover";
+    const actions = document.createElement("div");
+    actions.className = "filter-actions";
+    const btnAll = document.createElement("button");
+    btnAll.type = "button"; btnAll.textContent = "All";
+    const btnNone = document.createElement("button");
+    btnNone.type = "button"; btnNone.textContent = "None";
+    const btnApply = document.createElement("button");
+    btnApply.type = "button"; btnApply.textContent = "Apply";
+    actions.append(btnAll, btnNone, btnApply);
+    pop.appendChild(actions);
+
+    const values = getColumnValues(colId);
+    const selected = filters[colId];
+    let draft = new Set(selected ? selected : values);
+    const inputs = [];
+
+    const syncChecks = () => inputs.forEach(({ input, value }) => { input.checked = draft.has(value); });
+    btnAll.addEventListener("click", e => { e.preventDefault(); draft = new Set(values); syncChecks(); });
+    btnNone.addEventListener("click", e => { e.preventDefault(); draft = new Set(); syncChecks(); });
+    btnApply.addEventListener("click", e => {
+      e.preventDefault();
+      if (!draft.size || draft.size === values.length) delete filters[colId];
+      else filters[colId] = new Set(draft);
+      renderTable();
+    });
+
+    for (const value of values) {
+      const lbl = document.createElement("label");
+      lbl.className = "filter-option";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = selected ? selected.has(value) : true;
+      input.addEventListener("change", () => {
+        if (input.checked) draft.add(value); else draft.delete(value);
+      });
+      const txt = document.createElement("span");
+      txt.textContent = value || "(empty)";
+      lbl.append(input, txt);
+      pop.appendChild(lbl);
+      inputs.push({ input, value });
+    }
+
+    details.appendChild(pop);
+    filterWrap.appendChild(details);
+    th.appendChild(filterWrap);
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of filtered) {
+    const tr = document.createElement("tr");
+    for (const colId of columnOrder) {
+      const col = getColumnById(colId);
+      if (!col) continue;
+      const td = document.createElement("td");
+      const val = col.get(row) || "";
+      td.textContent = val;
+      if (val.length > 80) td.title = val;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  document.querySelectorAll("#results-table th").forEach(th => {
+    th.addEventListener("dragstart", e => {
+      th.classList.add("dragging");
+      e.dataTransfer.setData("text/plain", th.dataset.colId || "");
+    });
+    th.addEventListener("dragend", () => th.classList.remove("dragging"));
+    th.addEventListener("dragover", e => e.preventDefault());
+    th.addEventListener("drop", e => {
+      e.preventDefault();
+      const fromId = e.dataTransfer.getData("text/plain");
+      const toId = th.dataset.colId;
+      if (!fromId || !toId || fromId === toId) return;
+      const fi = columnOrder.indexOf(fromId), ti = columnOrder.indexOf(toId);
+      if (fi === -1 || ti === -1) return;
+      columnOrder.splice(fi, 1);
+      columnOrder.splice(ti, 0, fromId);
+      saveColumnOrder();
+      renderTable();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Schema introspection
+// ---------------------------------------------------------------------------
+
+async function introspectType(endpoint, token, typeName) {
+  const data = await gqlWithRetry(endpoint, token, QUERY_INTROSPECT_TYPE(typeName), {});
+  return (data?.__type?.fields) ? data.__type.fields.map(f => f.name) : [];
+}
+
+function pick(fields, candidates) {
+  for (const c of candidates) {
+    if (fields.includes(c)) return c;
+  }
+  return null;
+}
+
+function unwrapTypeName(typeObj) {
+  let t = typeObj;
+  for (let i = 0; i < 8; i++) {
+    if (!t) return null;
+    if (t.kind === "OBJECT" || t.kind === "INTERFACE" || t.kind === "UNION") return t.name;
+    t = t.ofType;
+  }
+  return null;
+}
+
+async function resolveFieldType(endpoint, token, parentTypeName, fieldName) {
+  const safe = parentTypeName.replace(/[^a-zA-Z0-9_]/g, "_");
+  const data = await gqlWithRetry(endpoint, token, `query FieldType_${safe} {
+    __type(name: "${parentTypeName}") {
+      fields {
+        name
+        type { name kind ofType { name kind ofType { name kind ofType { name kind } } } }
+      }
+    }
+  }`, {});
+  const fields = data?.__type?.fields || [];
+  const field = fields.find(f => f.name === fieldName);
+  return field ? unwrapTypeName(field.type) : null;
+}
+
+async function resolveConnectionNode(endpoint, token, connectionTypeName) {
+  return resolveFieldType(endpoint, token, connectionTypeName, "nodes");
+}
+
+async function buildQuizQuestionNodeSel(endpoint, token) {
+  const ptFields = await introspectType(endpoint, token, "QuizContent");
+  if (!ptFields.includes("quiz")) return { questionSel: "id", choicesFrag: "" };
+
+  const quizType = await resolveFieldType(endpoint, token, "QuizContent", "quiz");
+  if (!quizType) return { questionSel: "id", choicesFrag: "" };
+
+  const quizFields = await introspectType(endpoint, token, quizType);
+  if (!quizFields.includes("questions")) return { questionSel: "id", choicesFrag: "" };
+
+  const qConnRaw = await resolveFieldType(endpoint, token, quizType, "questions");
+  const qNodeType = qConnRaw?.endsWith("Connection")
+    ? await resolveConnectionNode(endpoint, token, qConnRaw)
+    : qConnRaw;
+  const qNodeFields = qNodeType ? await introspectType(endpoint, token, qNodeType) : [];
+
+  let choicesFrag = "";
+  if (qNodeFields.includes("choices")) {
+    const choicesRaw = await resolveFieldType(endpoint, token, qNodeType, "choices");
+    if (choicesRaw?.endsWith("Connection")) {
+      const choiceNode = await resolveConnectionNode(endpoint, token, choicesRaw);
+      const cf = choiceNode ? await introspectType(endpoint, token, choiceNode) : [];
+      const cSel = QUIZ_CHOICE_FIELDS.filter(f => cf.includes(f)).join(" ");
+      choicesFrag = cSel
+        ? `choices(first: ${QUIZ_CHOICES_FIRST}) { nodes { ${cSel} } }`
+        : `choices(first: ${QUIZ_CHOICES_FIRST}) { nodes { id } }`;
+    } else {
+      choicesFrag = "choices";
+    }
+  }
+
+  const qSel = QUIZ_QUESTION_FIELDS.filter(f => qNodeFields.includes(f));
+  const questionSel = [...qSel, choicesFrag].filter(Boolean).join(" ") || "id";
+  return { questionSel, choicesFrag, quizFields, qNodeFields };
+}
+
+async function buildContentFragmentsByType(endpoint, token) {
+  let data;
+  try {
+    data = await gqlWithRetry(endpoint, token, `query IntrospectContentIface {
+      __type(name: "ContentInterface") {
+        fields { name }
+        possibleTypes { name fields { name } }
+      }
+    }`, {});
+  } catch (e) {
+    log("ContentInterface introspection failed: " + e.message);
+    return { fragmentsByType: { _default: "content { contentType }" }, quizQuestionNodeSel: "id" };
+  }
+
+  const type = data?.__type;
+  if (!type) {
+    return { fragmentsByType: { _default: "content { contentType }" }, quizQuestionNodeSel: "id" };
+  }
+
+  const ifaceFields = new Set((type.fields || []).map(f => f.name));
+  const sharedSel = SHARED_CONTENT_FIELDS.filter(f => ifaceFields.has(f)).join(" ");
+  const ptByName = {};
+  for (const pt of (type.possibleTypes || [])) {
+    ptByName[pt.name] = new Set((pt.fields || []).map(f => f.name));
+  }
+
+  const quizMeta = await buildQuizQuestionNodeSel(endpoint, token);
+  const fragmentsByType = {};
+
+  for (const [typeName, fields] of Object.entries(CONTENT_TYPE_SPECS)) {
+    const ptFields = ptByName[typeName];
+    if (!ptFields) continue;
+
+    let typeOnly = "";
+
+    if (typeName === "QuizContent") {
+      const quizParts = [];
+      if (ptFields.has("quiz")) {
+        const qInner = [`name`, `questions(first: ${QUIZ_QUESTIONS_PAGE_SIZE}) { nodes { ${quizMeta.questionSel} } pageInfo { hasNextPage endCursor } }`].filter(Boolean);
+        quizParts.push(`quiz { ${qInner.join(" ")} }`);
+      }
+      typeOnly = quizParts.join(" ");
+    } else if (typeName === "VideoContent" && ptFields.has("captions")) {
+      const sel = fields.filter(f => ptFields.has(f));
+      const inner = VIDEO_CAPTION_FIELDS.join(" ");
+      typeOnly = [sel.join(" "), `captions { ${inner} }`].filter(Boolean).join(" ");
+    } else {
+      typeOnly = fields.filter(f => ptFields.has(f)).join(" ");
+    }
+
+    if (typeOnly) {
+      fragmentsByType[typeName] = `content { ${sharedSel} ... on ${typeName} { ${typeOnly} } }`;
+    } else if (sharedSel) {
+      fragmentsByType[typeName] = `content { ${sharedSel} ... on ${typeName} { __typename } }`;
+    } else {
+      fragmentsByType[typeName] = `content { ... on ${typeName} { contentType } }`;
+    }
+  }
+
+  fragmentsByType._default = sharedSel
+    ? `content { ${sharedSel} }`
+    : "content { contentType __typename }";
+
+  return {
+    fragmentsByType,
+    quizQuestionNodeSel: quizMeta.questionSel || "id"
+  };
+}
+
+const SCHEMA_CACHE_KEY = "thinkific-lessons-schema-v3";
+
+function loadSchemaCache(endpoint) {
+  try {
+    const raw = localStorage.getItem(SCHEMA_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (cached.endpoint !== endpoint) return null;
+    if (Date.now() - cached.ts > 24 * 60 * 60 * 1000) return null;
+    return cached.data;
+  } catch { return null; }
+}
+
+function saveSchemaCache(endpoint, data) {
+  try { localStorage.setItem(SCHEMA_CACHE_KEY, JSON.stringify({ endpoint, ts: Date.now(), data })); } catch {}
+}
+
+async function buildDiscoverySchema(endpoint, token) {
+  const cached = loadSchemaCache(endpoint);
+  if (cached) {
+    log("Using cached schema (Clear Schema Cache to re-detect).");
+    return cached;
+  }
+
+  log("Introspecting schema…");
+  const { fragmentsByType, quizQuestionNodeSel } = await buildContentFragmentsByType(endpoint, token);
+  log("Built " + Object.keys(fragmentsByType).length + " content-type queries (one fragment per lesson).");
+
+  const courseFields = await introspectType(endpoint, token, "Course");
+  const lvl1Field = pick(courseFields, ["curriculum", "chapters", "courseModules", "sections", "modules", "units"]);
+  if (!lvl1Field) throw new Error("Cannot find curriculum on Course. Fields: " + courseFields.join(", "));
+
+  const lvl1TypeRaw = await resolveFieldType(endpoint, token, "Course", lvl1Field);
+  const lvl1IsConn = lvl1TypeRaw && lvl1TypeRaw.endsWith("Connection");
+  const lvl1Type = lvl1IsConn ? await resolveConnectionNode(endpoint, token, lvl1TypeRaw) : lvl1TypeRaw;
+
+  let chapterContainerField = null;
+  let chapterNameSel = "name";
+
+  if (lvl1Type) {
+    const lvl1TypeFields = await introspectType(endpoint, token, lvl1Type);
+    chapterContainerField = pick(lvl1TypeFields, ["chapters", "sections", "modules", "units", "items"]);
+    if (chapterContainerField) {
+      const chapRaw = await resolveFieldType(endpoint, token, lvl1Type, chapterContainerField);
+      const chapIsConn = chapRaw && chapRaw.endsWith("Connection");
+      const chapType = chapIsConn ? await resolveConnectionNode(endpoint, token, chapRaw) : chapRaw;
+      if (chapType) {
+        const chapFields = await introspectType(endpoint, token, chapType);
+        chapterNameSel = chapFields.includes("name") ? "name" : (chapFields.includes("title") ? "name: title" : "");
+      }
+    }
+  }
+
+  let chapterIdArg = "id";
+  let lessonIdArg = "id";
+  const rootData = await gqlWithRetry(endpoint, token, `query IntrospectRoot {
+    __schema { queryType { fields { name args { name } } } }
+  }`, {});
+  const rootFields = rootData?.__schema?.queryType?.fields || [];
+  const rootChapter = rootFields.find(f => f.name === "chapter");
+  if (rootChapter?.args?.length) chapterIdArg = rootChapter.args[0].name;
+  const rootLesson = rootFields.find(f => f.name === "lesson");
+  if (rootLesson?.args?.length) lessonIdArg = rootLesson.args[0].name;
+
+  const chapterDirectFields = await introspectType(endpoint, token, "Chapter");
+  const lessonField = pick(chapterDirectFields, ["lessons", "contents", "items", "courseContents"]) || "lessons";
+
+  let lessonListExtra = "";
+  const lessonConnRaw = await resolveFieldType(endpoint, token, "Chapter", lessonField);
+  const lessonNodeType = lessonConnRaw?.endsWith("Connection")
+    ? await resolveConnectionNode(endpoint, token, lessonConnRaw)
+    : lessonConnRaw;
+  if (lessonNodeType) {
+    const lessonNodeFields = await introspectType(endpoint, token, lessonNodeType);
+    if (lessonNodeFields.includes("content")) {
+      lessonListExtra = "content { __typename contentType }";
+    }
+  }
+
+  const lessonFields = await introspectType(endpoint, token, "Lesson");
+  const hasLessonType = lessonFields.includes("lessonType");
+
+  let courseSel = "";
+  if (lessonFields.includes("course")) {
+    const courseType = await resolveFieldType(endpoint, token, "Lesson", "course");
+    if (courseType) {
+      const cf = await introspectType(endpoint, token, courseType);
+      const sel = COURSE_FIELDS.filter(f => cf.includes(f)).join(" ");
+      if (sel) courseSel = "course { " + sel + " }";
+    }
+  }
+  if (!courseSel) courseSel = "course { id name slug title description }";
+
+  let coursesQuery;
+  if (!lvl1IsConn && chapterContainerField) {
+    coursesQuery = `query SiteCourses($after: String) {
+  site {
+    courses(first: ${COURSES_PAGE_SIZE}, after: $after) {
+      nodes { id name
+        ${lvl1Field} {
+          ${chapterContainerField}(first: ${CHAPTERS_PAGE_SIZE}) { nodes { id ${chapterNameSel} } pageInfo { hasNextPage endCursor } }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+  } else if (lvl1IsConn) {
+    coursesQuery = `query SiteCourses($after: String) {
+  site {
+    courses(first: ${COURSES_PAGE_SIZE}, after: $after) {
+      nodes { id name
+        ${lvl1Field}(first: ${CHAPTERS_PAGE_SIZE}) { nodes { id ${chapterNameSel} } pageInfo { hasNextPage endCursor } }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+  } else {
+    coursesQuery = `query SiteCourses($after: String) {
+  site {
+    courses(first: 50, after: $after) {
+      nodes { id name }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+  }
+
+  const chapterLessonsQuery = `query ChapterLessons($id: ID!, $after: String) {
+  chapter(${chapterIdArg}: $id) {
+    ${lessonField}(first: ${LESSONS_PAGE_SIZE}, after: $after) {
+      nodes { id title ${lessonListExtra} }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+  const lessonPeekQuery = `query LessonPeek($id: ID!) {
+  lesson(${lessonIdArg}: $id) {
+    content { __typename contentType }
+  }
+}`;
+
+  const quizQuestionsPageQuery = `query LessonQuizQuestions($id: ID!, $after: String) {
+  lesson(${lessonIdArg}: $id) {
+    content {
+      ... on QuizContent {
+        quiz {
+          questions(first: ${QUIZ_QUESTIONS_PAGE_SIZE}, after: $after) {
+            nodes { ${quizQuestionNodeSel} }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }
+  }
+}`;
+
+  const result = {
+    coursesQuery,
+    chapterLessonsQuery,
+    lessonPeekQuery,
+    quizQuestionsPageQuery,
+    fragmentsByType,
+    courseSel,
+    quizQuestionNodeSel,
+    structure: {
+      shape: lvl1IsConn ? "conn-chapters" : (chapterContainerField ? "obj-chapters" : "courses-only"),
+      lvl1Field,
+      chapterContainerField,
+      lessonField,
+      lessonListExtra,
+      chapterIdArg,
+      lessonIdArg,
+      hasLessonType
+    }
+  };
+
+  saveSchemaCache(endpoint, result);
+  log("Schema cached for 24 hours.");
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch helpers
+// ---------------------------------------------------------------------------
+
+async function fetchAllLessonsForChapter(endpoint, token, chapterLessonsQuery, lessonField, chapterId) {
+  const stubs = [];
+  let after = null;
+  let page = 0;
+  while (true) {
+    page++;
+    const data = await gqlWithRetry(endpoint, token, chapterLessonsQuery, { id: chapterId, after });
+    const conn = data?.chapter?.[lessonField];
+    if (!conn) break;
+    for (const n of (conn.nodes || [])) {
+      if (n?.id) {
+        stubs.push({
+          lessonId: n.id,
+          lessonTitle: n.title || "",
+          contentTypename: n.content?.__typename || ""
+        });
+      }
+    }
+    if (conn.pageInfo?.hasNextPage) {
+      after = conn.pageInfo.endCursor;
+      if (page > 1) log("Chapter " + chapterId + ": lessons page " + page);
+    } else break;
+  }
+  return stubs;
+}
+
+function cellStr(v) {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
+function normalizeChoices(choices) {
+  if (choices == null) return [];
+  const strip = shouldStripHtml();
+  const clean = (val) => {
+    if (typeof val === "string") return strip ? stripHtml(val) : val;
+    if (val && typeof val === "object") {
+      const out = { ...val };
+      for (const k of Object.keys(out)) {
+        if (typeof out[k] === "string") out[k] = strip ? stripHtml(out[k]) : out[k];
+      }
+      return out;
+    }
+    return val;
+  };
+  if (choices?.nodes && Array.isArray(choices.nodes)) {
+    return choices.nodes.map(clean);
+  }
+  if (Array.isArray(choices)) return choices.map(clean);
+  if (typeof choices === "string") {
+    try {
+      const parsed = JSON.parse(choices);
+      if (parsed?.nodes) return parsed.nodes.map(clean);
+      return Array.isArray(parsed) ? parsed.map(clean) : [clean(choices)];
+    } catch {
+      return [clean(choices)];
+    }
+  }
+  return [clean(choices)];
+}
+
+async function resolveContentTypename(endpoint, token, schema, stub) {
+  if (stub.contentTypename) return stub.contentTypename;
+  const data = await gqlWithRetry(endpoint, token, schema.lessonPeekQuery, { id: stub.lessonId });
+  return data?.lesson?.content?.__typename || "";
+}
+
+function buildLessonDetailQuery(schema, contentFrag) {
+  const { structure, courseSel } = schema;
+  return `query LessonDetail($id: ID!) {
+  lesson(${structure.lessonIdArg}: $id) {
+    ${structure.hasLessonType ? "lessonType" : ""}
+    ${contentFrag}
+    ${courseSel}
+  }
+}`;
+}
+
+async function fetchSingleLessonDetail(endpoint, token, schema, stub) {
+  let typeName = stub.contentTypename;
+  if (!typeName) {
+    typeName = await resolveContentTypename(endpoint, token, schema, stub);
+    stub.contentTypename = typeName;
+  }
+  const contentFrag = schema.fragmentsByType[typeName] || schema.fragmentsByType._default;
+  const query = buildLessonDetailQuery(schema, contentFrag);
+  const data = await gqlWithRetry(endpoint, token, query, { id: stub.lessonId });
+  return data?.lesson || null;
+}
+
+async function fetchLessonGroup(endpoint, token, schema, contentTypename, stubs) {
+  const contentFrag = schema.fragmentsByType[contentTypename] || schema.fragmentsByType._default;
+  const { structure, courseSel } = schema;
+  const vars = {};
+  const varDefs = stubs.map((_, j) => "$id" + j + ": ID!").join(", ");
+  const sels = stubs.map((stub, j) => {
+    vars["id" + j] = stub.lessonId;
+    return `l${j}: lesson(${structure.lessonIdArg}: $id${j}) {
+      ${structure.hasLessonType ? "lessonType" : ""}
+      ${contentFrag}
+      ${courseSel}
+    }`;
+  }).join("\n");
+  const query = `query BatchLessons(${varDefs}) {\n${sels}\n}`;
+  const data = await gqlWithRetry(endpoint, token, query, vars);
+  const out = new Map();
+  stubs.forEach((stub, j) => out.set(stub.lessonId, data?.["l" + j] || null));
+  return out;
+}
+
+function collectQuizQuestionNodes(content) {
+  return (content?.quiz?.questions?.nodes || []).slice();
+}
+
+async function fetchAllQuizQuestions(endpoint, token, schema, lessonId, initialContent) {
+  const nodes = collectQuizQuestionNodes(initialContent);
+  let after = initialContent?.quiz?.questions?.pageInfo?.endCursor || null;
+  let hasNext = initialContent?.quiz?.questions?.pageInfo?.hasNextPage;
+
+  while (hasNext && schema.quizQuestionsPageQuery) {
+    const data = await gqlWithRetry(endpoint, token, schema.quizQuestionsPageQuery, { id: lessonId, after });
+    const conn = data?.lesson?.content?.quiz?.questions;
+    if (!conn) break;
+    for (const n of (conn.nodes || [])) nodes.push(n);
+    hasNext = conn.pageInfo?.hasNextPage;
+    after = conn.pageInfo?.endCursor;
+    if (hasNext) log("Lesson " + lessonId + ": fetching more quiz questions…");
+  }
+
+  return nodes;
+}
+
+function buildQuizQuestionsJson(questionNodes) {
+  const strip = shouldStripHtml();
+  const questions = questionNodes.map((q, i) => ({
+    index: i + 1,
+    prompt: strip ? stripHtml(q.prompt) : cellStr(q.prompt),
+    choices: normalizeChoices(q.choices),
+    textExplanation: strip ? stripHtml(q.textExplanation) : cellStr(q.textExplanation)
+  }));
+  return questions.length ? JSON.stringify(questions) : "";
+}
+
+function flattenLesson(stub, lesson, questionNodes) {
+  const c = lesson?.content || {};
+  const course = lesson?.course || {};
+  const quizNodes = questionNodes || collectQuizQuestionNodes(c);
+  const quiz = c.quiz || {};
+
+  return {
+    course_id: cellStr(course.id || stub.courseId),
+    course_name: cellStr(course.name || stub.courseName),
+    course_slug: cellStr(course.slug),
+    course_title: cellStr(course.title),
+    course_description: maybeStripHtml(course.description),
+    chapter_id: cellStr(stub.chapterId),
+    chapter_name: cellStr(stub.chapterName),
+    lesson_id: cellStr(stub.lessonId),
+    lesson_title: cellStr(stub.lessonTitle),
+    lesson_type: cellStr(lesson?.lessonType),
+    content_type: cellStr(c.contentType),
+    content_id: cellStr(c.id),
+    content_created_at: cellStr(c.createdAt),
+    content_updated_at: cellStr(c.updatedAt),
+    confirmation_message: maybeStripHtml(c.confirmationMessage),
+    file_size_limit: cellStr(c.fileSizeLimit),
+    html_description: maybeStripHtml(c.htmlDescription),
+    url: cellStr(c.url),
+    play_url: cellStr(c.playUrl),
+    source_url: cellStr(c.sourceUrl),
+    duration_seconds: cellStr(c.durationInSeconds),
+    file_name: cellStr(c.fileName),
+    file_size: cellStr(c.fileSize),
+    file_type: cellStr(c.fileType),
+    thumbnail: cellStr(c.thumbnail),
+    video_id: cellStr(c.videoId),
+    video_captions_json: c.captions ? JSON.stringify(c.captions) : "",
+    quiz_name: cellStr(quiz.name),
+    quiz_questions_json: buildQuizQuestionsJson(quizNodes)
+  };
+}
+
+async function fetchLessonBatch(endpoint, token, schema, batch) {
+  const byType = new Map();
+  for (const stub of batch) {
+    const key = stub.contentTypename || "_unknown";
+    if (!byType.has(key)) byType.set(key, []);
+    byType.get(key).push(stub);
+  }
+
+  const lessonById = new Map();
+  for (const [typeName, group] of byType) {
+    if (typeName === "_unknown" || typeName === "") {
+      for (const stub of group) {
+        lessonById.set(stub.lessonId, await fetchSingleLessonDetail(endpoint, token, schema, stub));
+      }
+      continue;
+    }
+    try {
+      const groupData = await fetchLessonGroup(endpoint, token, schema, typeName, group);
+      for (const [id, lesson] of groupData) lessonById.set(id, lesson);
+    } catch (err) {
+      if (isRateLimitError(err)) throw err;
+      log("Batch for " + typeName + " failed (" + err.message + ") — retrying individually…");
+      for (const stub of group) {
+        try {
+          lessonById.set(stub.lessonId, await fetchSingleLessonDetail(endpoint, token, schema, stub));
+        } catch (e2) {
+          log("Lesson " + stub.lessonId + ": " + e2.message);
+          lessonById.set(stub.lessonId, null);
+        }
+      }
+    }
+  }
+
+  return batch.map(stub => lessonById.get(stub.lessonId) || null);
+}
+
+async function processLessonStub(endpoint, token, schema, stub, lesson) {
+  if (!lesson) return flattenLesson(stub, {}, []);
+  let quizNodes = null;
+  if (lesson.content?.quiz?.questions?.pageInfo?.hasNextPage) {
+    quizNodes = await fetchAllQuizQuestions(endpoint, token, schema, stub.lessonId, lesson.content);
+  }
+  return flattenLesson(stub, lesson, quizNodes);
+}
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
+
+async function runExport() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#token").value.trim();
+  const courseIdFilter = $("#course-id").value.trim();
+  const outfile = $("#outfile").value.trim() || "thinkific-lessons.csv";
+
+  if (!endpoint || !token) { alert("Endpoint and token are required."); return; }
+
+  $("#start").disabled = true;
+  $("#download").disabled = true;
+  $("#log").textContent = "";
+  $("#reset-columns").disabled = true;
+  setStatus("Introspecting schema…");
+  $("#bar").classList.add("indeterminate");
+  setBar(0);
+
+  try {
+    const schema = await buildDiscoverySchema(endpoint, token);
+    const { coursesQuery, chapterLessonsQuery, structure } = schema;
+    setBar(5);
+
+    const allChapters = [];
+    let coursePage = 0;
+    let courseAfter = null;
+
+    while (true) {
+      coursePage++;
+      setStatus("Pass 1 — courses page " + coursePage + "…");
+      const data = await gqlWithRetry(endpoint, token, coursesQuery, { after: courseAfter });
+      const courseConn = data?.site?.courses;
+      if (!courseConn) throw new Error("Unexpected response — courses missing.");
+
+      for (const course of (courseConn.nodes || [])) {
+        if (courseIdFilter && String(course.id) !== courseIdFilter) continue;
+
+        let chapterNodes = [];
+        if (structure.shape === "obj-chapters" && course[structure.lvl1Field]) {
+          const container = course[structure.lvl1Field][structure.chapterContainerField];
+          chapterNodes = container?.nodes || [];
+        } else if (structure.shape === "conn-chapters" && course[structure.lvl1Field]) {
+          chapterNodes = course[structure.lvl1Field].nodes || [];
+        }
+
+        for (const ch of chapterNodes) {
+          allChapters.push({
+            chapterId: ch.id,
+            chapterName: ch.name || "",
+            courseId: course.id,
+            courseName: course.name || ""
+          });
+        }
+      }
+
+      setBar(Math.min(20, 5 + coursePage * 3));
+      if (courseConn.pageInfo?.hasNextPage) courseAfter = courseConn.pageInfo.endCursor;
+      else break;
+    }
+
+    log("Pass 1: " + allChapters.length + " chapters.");
+
+    const stubs = [];
+    for (let i = 0; i < allChapters.length; i++) {
+      const ch = allChapters[i];
+      if (i % 5 === 0 || i === allChapters.length - 1) {
+        setStatus("Pass 2 — chapter " + (i + 1) + " / " + allChapters.length + "…");
+        setBar(20 + Math.round(25 * i / Math.max(1, allChapters.length)));
+      }
+      const pageStubs = await fetchAllLessonsForChapter(
+        endpoint, token, chapterLessonsQuery, structure.lessonField, ch.chapterId
+      );
+      for (const s of pageStubs) {
+        stubs.push({
+          courseId: ch.courseId,
+          courseName: ch.courseName,
+          chapterId: ch.chapterId,
+          chapterName: ch.chapterName,
+          lessonId: s.lessonId,
+          lessonTitle: s.lessonTitle,
+          contentTypename: s.contentTypename || ""
+        });
+      }
+    }
+
+    log("Pass 2: " + stubs.length + " lessons discovered.");
+
+    const detailRows = [];
+    const total = stubs.length;
+
+    for (let i = 0; i < stubs.length; i += LESSON_BATCH_SIZE) {
+      const batch = stubs.slice(i, i + LESSON_BATCH_SIZE);
+      const done = Math.min(i + LESSON_BATCH_SIZE, total);
+      setStatus("Pass 3 — lessons " + done + " / " + total + "…");
+      setBar(45 + Math.round(50 * done / Math.max(1, total)));
+
+      let lessons;
+      try {
+        lessons = await fetchLessonBatch(endpoint, token, schema, batch);
+      } catch (err) {
+        if (isRateLimitError(err)) throw err;
+        log("Batch failed (" + err.message + ") — fetching individually…");
+        for (const stub of batch) {
+          try {
+            const lesson = await fetchSingleLessonDetail(endpoint, token, schema, stub);
+            detailRows.push(await processLessonStub(endpoint, token, schema, stub, lesson));
+          } catch (e2) {
+            log("Lesson " + stub.lessonId + ": " + e2.message);
+            detailRows.push(flattenLesson(stub, {}, []));
+          }
+        }
+        continue;
+      }
+
+      for (let j = 0; j < batch.length; j++) {
+        const stub = batch[j];
+        const lesson = lessons[j];
+        if (!lesson) log("No detail for lesson " + stub.lessonId);
+        detailRows.push(await processLessonStub(endpoint, token, schema, stub, lesson));
+      }
+    }
+
+    tableRows = detailRows;
+    renderTable();
+    $("#reset-columns").disabled = false;
+    setBar(100);
+    setStatus("Ready — " + detailRows.length + " lessons.");
+    log("Done. " + detailRows.length + " rows.");
+
+    const dlBtn = $("#download");
+    dlBtn.disabled = false;
+    dlBtn.onclick = () => {
+      const csv = toCSV(detailRows, columnOrder);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = outfile;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+  } catch (err) {
+    console.error(err);
+    setStatus("Error — " + err.message);
+    log("Error: " + err.message);
+    if (err?.body) log("Details: " + JSON.stringify(err.body));
+  } finally {
+    $("#start").disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+const TOKEN_KEY = "thinkific-lessons-export-token";
+const savedToken = localStorage.getItem(TOKEN_KEY);
+if (savedToken) {
+  $("#token").value = savedToken;
+  log("Loaded saved API key from this device.");
+}
+
+loadColumnOrder();
+
+$("#save-token").addEventListener("click", () => {
+  const t = $("#token").value.trim();
+  if (!t) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, t);
+  log("API key saved.");
+});
+
+$("#start").addEventListener("click", runExport);
+$("#reset-columns").addEventListener("click", resetColumns);
+$("#clear-cache").addEventListener("click", () => {
+  localStorage.removeItem(SCHEMA_CACHE_KEY);
+  log("Schema cache cleared.");
+});
+
+const resizeBox = $("#table-resize");
+const resizeHandle = $("#table-resize-handle");
+if (resizeBox && resizeHandle) {
+  resizeHandle.addEventListener("mousedown", e => {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const sw = resizeBox.getBoundingClientRect().width;
+    const sh = resizeBox.getBoundingClientRect().height;
+    const onMove = ev => {
+      resizeBox.style.width = Math.max(600, sw + (ev.clientX - sx)) + "px";
+      resizeBox.style.height = Math.max(240, sh + (ev.clientY - sy)) + "px";
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+</script>
+</body>
+</html>
