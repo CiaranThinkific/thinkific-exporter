@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Text Lesson File Exporter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241 }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink); box-sizing:border-box }
+    .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end }
+    .row > label { flex:1 1 220px; min-width:220px; display:flex; flex-direction:column }
+    .btns { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap }
+    button { flex:1; min-width:140px; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:220px; overflow:auto; white-space:pre-wrap }
+    .preview-meta { margin-top:8px; font-size:.85rem; color:var(--muted) }
+    .table-resize { margin-top:16px; border:1px solid #263249; border-radius:14px; background:#0a1220; overflow:hidden; min-height:240px; width:1400px; padding:0 20px 20px 0; position:relative }
+    .table-resize-handle { position:absolute; right:6px; bottom:6px; width:18px; height:18px; cursor:se-resize }
+    .table-resize-handle::after { content:""; position:absolute; right:2px; bottom:2px; width:12px; height:12px; border-right:2px solid rgba(203,213,225,.6); border-bottom:2px solid rgba(203,213,225,.6) }
+    .table-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; margin:0 -20px -20px 0 }
+    .table-toolbar { display:flex; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #263249; background:rgba(15,23,42,.6) }
+    .table-toolbar .muted { font-size:.85rem }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; table-layout:auto }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2a3e; vertical-align:top; white-space:nowrap; max-width:360px; overflow:hidden; text-overflow:ellipsis }
+    th { background:#0b1324; position:sticky; top:0; z-index:1; text-align:left }
+    .table-scroll { flex:1; min-height:200px; overflow:auto }
+    .empty { padding:14px; color:var(--muted); font-size:.9rem }
+    a.link { color:var(--accent2); text-decoration:none }
+    a.link:hover { text-decoration:underline }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #263249; font-size:.75rem; color:#cbd5e1 }
+    .pill.ok { border-color:#3d6b4f; color:#b7e0c4 }
+    .pill.fail { border-color:#6b3d3d; color:#e0b7b7 }
+    .pill.skip { border-color:#5a4a2a; color:#e0d4b7 }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+            <div class="brand-tag">Text Lesson File Exporter</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Text Lesson Files</h1>
+      <div class="muted">
+        Upload a Looker/warehouse CSV with <code>content_id</code> (lesson IDs). Each ID is fetched via
+        <code>lesson(id)</code>, <code>htmlDescription</code> is scanned for
+        <code>files.cdn.thinkific.com/file_uploads/*</code>, and matching files are downloaded into a folder you choose — as they are found.
+      </div>
+
+      <div class="row">
+        <label>GraphQL Endpoint
+          <input id="endpoint" value="https://api.thinkific.com/stable/graphql">
+        </label>
+        <label>Results CSV name
+          <input id="outfile" value="thinkific-text-files.csv">
+        </label>
+      </div>
+
+      <label>Bearer Token (saved on this device)
+        <div class="token-save">
+          <input id="token" type="password" placeholder="Paste your API token here">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+
+      <label>Lesson CSV (from Looker)
+        <input id="csv-file" type="file" accept=".csv,text/csv">
+      </label>
+      <div id="csv-meta" class="preview-meta">No CSV loaded. Expected column: <code>content_id</code> (also accepts <code>lesson_id</code> / <code>id</code>). Optional: <code>name</code>, <code>course_id</code>.</div>
+
+      <div class="row">
+        <label>Batch size
+          <input id="batch-size" type="number" min="1" max="10" value="3">
+        </label>
+        <label>Output folder
+          <div class="token-save">
+            <input id="folder-label" type="text" readonly placeholder="Not selected — click Choose Folder" value="">
+            <button id="pick-folder" type="button" class="secondary">Choose Folder</button>
+          </div>
+        </label>
+      </div>
+
+      <div class="btns">
+        <button id="start">Scan + Download Files</button>
+        <button id="download" class="secondary" disabled>Download Results CSV</button>
+        <button id="download-zip" class="secondary" disabled>Download ZIP fallback</button>
+        <button id="stop" type="button" class="secondary" disabled>Stop</button>
+      </div>
+
+      <div class="progress"><div id="bar" class="bar" style="width:0%"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <div class="table-resize" id="table-resize">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="muted" id="table-meta">No results yet.</div>
+          </div>
+          <div class="table-scroll">
+            <table id="results-table" aria-live="polite"></table>
+          </div>
+          <div id="table-empty" class="empty">Upload a CSV and run a scan to see file links.</div>
+        </div>
+        <div class="table-resize-handle" id="table-resize-handle" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => {
+  const el = $("#log");
+  el.textContent += (el.textContent ? "\n" : "") + m;
+  el.scrollTop = el.scrollHeight;
+};
+const setStatus = (t) => { $("#status").textContent = t; };
+const setBar = (pct) => {
+  const b = $("#bar");
+  b.classList.remove("indeterminate");
+  b.style.width = Math.max(0, Math.min(100, pct)) + "%";
+};
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const RATE_LIMIT_WAIT_MS = 60 * 1000;
+const TOKEN_KEY = "thinkific-text-files-export-token";
+const FILE_URL_RE = /https?:\/\/files\.cdn\.thinkific\.com\/file_uploads\/[^\s"'<>]+/gi;
+const FILE_URL_PROTOREL_RE = /(?:^|["'\s(=])(\/\/files\.cdn\.thinkific\.com\/file_uploads\/[^\s"'<>]+)/gi;
+
+const LESSON_DETAIL_QUERY = `query LessonDetail($id: ID!) {
+  lesson(id: $id) {
+    takeUrl
+    title
+    content {
+      ... on TextContent {
+        contentType
+        id
+        htmlDescription
+      }
+    }
+  }
+}`;
+
+let csvLessons = [];
+let tableRows = [];
+let dirHandle = null;
+let stopRequested = false;
+let zipFallbackBlobs = []; // { path, blob } when folder API unavailable or fetch works but no folder
+
+// ---------------------------------------------------------------------------
+// GraphQL helpers
+// ---------------------------------------------------------------------------
+
+function attachRateLimit(err, payload) {
+  if (payload?.extensions?.rateLimit) err.rateLimit = payload.extensions.rateLimit;
+}
+
+async function gql(endpoint, token, query, variables) {
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ query, variables: variables || {} })
+  });
+
+  let json;
+  try { json = await resp.json(); }
+  catch {
+    if (!resp.ok) throw new Error("HTTP " + resp.status + " - " + resp.statusText);
+    throw new Error("Invalid JSON response.");
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  if (json.errors) {
+    const msg = json.errors.map(e => e.message).join("; ");
+    const err = new Error("GraphQL error: " + msg);
+    err.graphQLErrors = json.errors;
+    const code = json.errors.find(e => e.extensions?.code)?.extensions?.code;
+    if (code) err.code = code;
+    const has429 = json.errors.some(e =>
+      e.extensions?.response?.status === 429 ||
+      /429|too many requests/i.test(String(e.message || ""))
+    );
+    if (has429 || /429|too many requests/i.test(msg)) err.status = 429;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  return { data: json.data, rateLimit: json?.extensions?.rateLimit };
+}
+
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.status === 429) return true;
+  if (err.code === "RATE_LIMITED") return true;
+  if (Array.isArray(err.graphQLErrors)) {
+    if (err.graphQLErrors.some(e => e.extensions?.code === "RATE_LIMITED")) return true;
+    if (err.graphQLErrors.some(e => e.extensions?.response?.status === 429)) return true;
+  }
+  const msg = typeof err.message === "string" ? err.message.toLowerCase() : "";
+  return msg.includes("rate limit") || msg.includes("429") || msg.includes("too many requests");
+}
+
+function getRateLimitWait(err) {
+  const rl = err?.rateLimit;
+  let waitMs = RATE_LIMIT_WAIT_MS;
+  let resetAt = rl?.resetAt;
+  if (rl?.resetAt) {
+    const resetAtMs = new Date(rl.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) waitMs = Math.max(RATE_LIMIT_WAIT_MS, Math.min(diff, 5 * 60 * 1000));
+    }
+  }
+  return { waitMs, resetAt };
+}
+
+async function cooldownFromRateLimit(rateLimit) {
+  if (!rateLimit || rateLimit.remaining == null || !rateLimit.limit) return;
+  const remaining = Number(rateLimit.remaining);
+  const limit = Number(rateLimit.limit);
+  if (remaining >= 250) return;
+
+  let waitMs = RATE_LIMIT_WAIT_MS;
+  if (rateLimit.resetAt) {
+    const resetAtMs = new Date(rateLimit.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) waitMs = Math.max(RATE_LIMIT_WAIT_MS, Math.min(diff, 5 * 60 * 1000));
+    }
+  }
+  setStatus("Cooldown: " + remaining + " / " + limit + " points left. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+  log("Rate limit low (" + remaining + " / " + limit + "). Waiting " + Math.ceil(waitMs / 1000) + "s…");
+  $("#bar").classList.add("indeterminate");
+  await sleep(waitMs);
+}
+
+async function gqlWithRetry(endpoint, token, query, variables) {
+  while (true) {
+    if (stopRequested) throw new Error("Stopped by user.");
+    try {
+      const result = await gql(endpoint, token, query, variables);
+      if (result.rateLimit) await cooldownFromRateLimit(result.rateLimit);
+      return result.data;
+    } catch (err) {
+      if (stopRequested) throw new Error("Stopped by user.");
+      if (isRateLimitError(err)) {
+        const { waitMs, resetAt } = getRateLimitWait(err);
+        const note = resetAt ? " (reset at " + resetAt + ")" : "";
+        setStatus("Rate limited (429). Waiting " + Math.ceil(waitMs / 1000) + "s" + note + "…");
+        log("429 / rate limit. Waiting " + Math.ceil(waitMs / 1000) + "s, then retrying…");
+        $("#bar").classList.add("indeterminate");
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CSV parse (Looker export)
+// ---------------------------------------------------------------------------
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function csvParse(text) {
+  const rows = [];
+  let cur = "";
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQuotes = false; continue; }
+      cur += ch;
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === ",") { row.push(cur); cur = ""; continue; }
+    if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
+    if (ch === "\r") continue;
+    cur += ch;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function normalizeHeader(h) {
+  return String(h || "").trim().toLowerCase().replace(/[\s_-]+/g, "_");
+}
+
+function findCol(headers, candidates) {
+  const norm = headers.map(normalizeHeader);
+  for (const c of candidates) {
+    const i = norm.indexOf(c);
+    if (i !== -1) return i;
+  }
+  return -1;
+}
+
+function parseLessonCsv(text) {
+  const rows = csvParse(text).filter(r => r.some(cell => String(cell || "").trim() !== ""));
+  if (!rows.length) throw new Error("CSV appears empty.");
+
+  const headers = rows[0];
+  const idIdx = findCol(headers, ["content_id", "lesson_id", "lessonid", "id"]);
+  if (idIdx === -1) {
+    throw new Error("CSV must include a content_id column (or lesson_id / id). Found: " + headers.join(", "));
+  }
+  const nameIdx = findCol(headers, ["name", "lesson_title", "title", "lesson_name"]);
+  const courseIdx = findCol(headers, ["course_id", "courseid"]);
+  const chapterIdx = findCol(headers, ["chapter_id", "chapterid"]);
+
+  const seen = new Set();
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const lessonId = String(row[idIdx] || "").trim();
+    if (!lessonId || seen.has(lessonId)) continue;
+    seen.add(lessonId);
+    out.push({
+      lesson_id: lessonId,
+      name: nameIdx >= 0 ? String(row[nameIdx] || "").trim() : "",
+      course_id: courseIdx >= 0 ? String(row[courseIdx] || "").trim() : "",
+      chapter_id: chapterIdx >= 0 ? String(row[chapterIdx] || "").trim() : ""
+    });
+  }
+  if (!out.length) throw new Error("No lesson IDs found in CSV.");
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// File helpers
+// ---------------------------------------------------------------------------
+
+function decodeHtmlEntities(s) {
+  return String(s || "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+/** Strip resize/srcset query params (?width=&dpr=) — those variants often fail; the bare CDN path works. */
+function normalizeFileUrl(raw) {
+  let s = decodeHtmlEntities(raw).replace(/[.,;)]+$/, "").trim();
+  if (s.startsWith("//")) s = "https:" + s;
+  try {
+    const u = new URL(s);
+    if (!/files\.cdn\.thinkific\.com$/i.test(u.hostname)) return "";
+    if (!u.pathname.includes("/file_uploads/")) return "";
+    u.search = "";
+    u.hash = "";
+    return u.toString();
+  } catch {
+    const bare = s.split(/[?#]/)[0];
+    return bare.startsWith("https://files.cdn.thinkific.com/file_uploads/") ? bare : "";
+  }
+}
+
+function extractFileUrls(html) {
+  if (!html || typeof html !== "string") return [];
+  const decoded = decodeHtmlEntities(html);
+  const found = new Set();
+  let m;
+  FILE_URL_RE.lastIndex = 0;
+  while ((m = FILE_URL_RE.exec(decoded)) !== null) {
+    const n = normalizeFileUrl(m[0]);
+    if (n) found.add(n);
+  }
+  FILE_URL_PROTOREL_RE.lastIndex = 0;
+  while ((m = FILE_URL_PROTOREL_RE.exec(decoded)) !== null) {
+    const n = normalizeFileUrl("https:" + m[1]);
+    if (n) found.add(n);
+  }
+  return Array.from(found);
+}
+
+function fileNameFromUrl(url) {
+  try {
+    const path = new URL(url).pathname;
+    const seg = path.split("/").filter(Boolean).pop() || "file";
+    return decodeURIComponent(seg).replace(/\u202F/g, " ");
+  } catch {
+    const seg = String(url).split("?")[0].split("/").pop() || "file";
+    try { return decodeURIComponent(seg).replace(/\u202F/g, " "); } catch { return seg; }
+  }
+}
+
+function sanitizePathPart(s) {
+  return String(s || "untitled")
+    .replace(/\u202F/g, " ")
+    .replace(/[\/\\?%*:|"<>]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || "untitled";
+}
+
+async function ensureDir(parent, name) {
+  return parent.getDirectoryHandle(name, { create: true });
+}
+
+async function writeBlobToDir(rootHandle, relativeParts, blob) {
+  let dir = rootHandle;
+  for (let i = 0; i < relativeParts.length - 1; i++) {
+    dir = await ensureDir(dir, relativeParts[i]);
+  }
+  const fileName = relativeParts[relativeParts.length - 1];
+  const fh = await dir.getFileHandle(fileName, { create: true });
+  const writable = await fh.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+async function fetchFileBlob(url) {
+  const resp = await fetch(url, { mode: "cors", credentials: "omit" });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.blob();
+}
+
+// ---------------------------------------------------------------------------
+// Table / CSV results
+// ---------------------------------------------------------------------------
+
+const COLUMN_DEFS = [
+  { id: "course_id", label: "course_id", get: r => r.course_id },
+  { id: "lesson_id", label: "lesson_id", get: r => r.lesson_id },
+  { id: "lesson_title", label: "lesson_title", get: r => r.lesson_title },
+  { id: "take_url", label: "take_url", get: r => r.take_url, link: true },
+  { id: "file_url", label: "file_url", get: r => r.file_url, link: true },
+  { id: "file_name", label: "file_name", get: r => r.file_name },
+  { id: "download_status", label: "download_status", get: r => r.download_status, pill: true }
+];
+
+function toCSV(rows) {
+  const lines = [COLUMN_DEFS.map(c => c.id).map(csvEscape).join(",")];
+  for (const r of rows) {
+    lines.push(COLUMN_DEFS.map(c => c.get(r)).map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
+
+function renderTable() {
+  const table = $("#results-table");
+  const empty = $("#table-empty");
+  const meta = $("#table-meta");
+  table.innerHTML = "";
+
+  if (!tableRows.length) {
+    empty.style.display = "block";
+    empty.textContent = "Upload a CSV and run a scan to see file links.";
+    meta.textContent = "No results yet.";
+    return;
+  }
+
+  const saved = tableRows.filter(r => r.download_status === "saved").length;
+  const failed = tableRows.filter(r => r.download_status === "fetch_failed").length;
+  meta.textContent = tableRows.length + " file(s) — " + saved + " saved, " + failed + " fetch failed";
+  empty.style.display = "none";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const col of COLUMN_DEFS) {
+    const th = document.createElement("th");
+    th.textContent = col.label;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of tableRows) {
+    const tr = document.createElement("tr");
+    for (const col of COLUMN_DEFS) {
+      const td = document.createElement("td");
+      const val = col.get(row) || "";
+      if (col.link && val) {
+        const a = document.createElement("a");
+        a.className = "link";
+        a.href = val;
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        a.textContent = val;
+        a.title = val;
+        td.appendChild(a);
+      } else if (col.pill && val) {
+        const span = document.createElement("span");
+        span.className = "pill";
+        if (val === "saved" || val === "zip_ready") span.classList.add("ok");
+        else if (val === "fetch_failed") span.classList.add("fail");
+        else span.classList.add("skip");
+        span.textContent = val;
+        td.appendChild(span);
+      } else {
+        td.textContent = val;
+        if (val.length > 80) td.title = val;
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+}
+
+// ---------------------------------------------------------------------------
+// Folder picker + ZIP fallback
+// ---------------------------------------------------------------------------
+
+async function pickFolder() {
+  if (!window.showDirectoryPicker) {
+    alert("This browser does not support choosing an output folder (needs Chromium: Chrome/Edge). You can still scan and use Download ZIP fallback.");
+    return;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    $("#folder-label").value = dirHandle.name || "Selected folder";
+    log("Output folder selected: " + (dirHandle.name || "(unnamed)"));
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    log("Folder pick failed: " + (err.message || err));
+  }
+}
+
+async function downloadZipFallback() {
+  if (typeof JSZip === "undefined") {
+    alert("JSZip failed to load.");
+    return;
+  }
+  if (!zipFallbackBlobs.length) {
+    alert("No fetched files available for ZIP. If all downloads failed, use the Results CSV and open file links manually.");
+    return;
+  }
+  setStatus("Packaging ZIP…");
+  const zip = new JSZip();
+  for (const item of zipFallbackBlobs) {
+    zip.file(item.path, item.blob);
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-text-files.zip";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setStatus("ZIP downloaded (" + zipFallbackBlobs.length + " files).");
+  log("ZIP fallback downloaded with " + zipFallbackBlobs.length + " file(s).");
+}
+
+// ---------------------------------------------------------------------------
+// Process one lesson
+// ---------------------------------------------------------------------------
+
+async function fetchLesson(endpoint, token, lessonId) {
+  const data = await gqlWithRetry(endpoint, token, LESSON_DETAIL_QUERY, { id: lessonId });
+  return data?.lesson || null;
+}
+
+async function processLesson(endpoint, token, stub, usedPaths) {
+  const rows = [];
+  let lesson;
+  try {
+    lesson = await fetchLesson(endpoint, token, stub.lesson_id);
+  } catch (err) {
+    log("Lesson " + stub.lesson_id + ": " + err.message);
+    return rows;
+  }
+
+  if (!lesson) {
+    log("Lesson " + stub.lesson_id + ": not found.");
+    return rows;
+  }
+
+  const html = lesson.content?.htmlDescription || "";
+  if (!lesson.content) {
+    log("Lesson " + stub.lesson_id + " (" + (lesson.title || stub.name || "") + "): not TextContent — skipped.");
+    return rows;
+  }
+
+  const urls = extractFileUrls(html);
+  if (!urls.length) return rows;
+
+  const title = lesson.title || stub.name || "";
+  const coursePart = sanitizePathPart(stub.course_id || "course");
+  const lessonPart = sanitizePathPart(stub.lesson_id);
+
+  for (const fileUrl of urls) {
+    if (stopRequested) break;
+
+    let baseName = sanitizePathPart(fileNameFromUrl(fileUrl));
+    let relParts = [coursePart, lessonPart, baseName];
+    let pathKey = relParts.join("/");
+    let n = 1;
+    while (usedPaths.has(pathKey)) {
+      const dot = baseName.lastIndexOf(".");
+      const renamed = dot > 0
+        ? baseName.slice(0, dot) + "-" + n + baseName.slice(dot)
+        : baseName + "-" + n;
+      relParts = [coursePart, lessonPart, renamed];
+      pathKey = relParts.join("/");
+      n++;
+    }
+    usedPaths.add(pathKey);
+
+    const row = {
+      course_id: stub.course_id || "",
+      lesson_id: stub.lesson_id,
+      lesson_title: title,
+      take_url: lesson.takeUrl || "",
+      file_url: fileUrl,
+      file_name: relParts[relParts.length - 1],
+      download_status: "pending"
+    };
+
+    try {
+      const blob = await fetchFileBlob(fileUrl);
+      if (dirHandle) {
+        await writeBlobToDir(dirHandle, relParts, blob);
+        row.download_status = "saved";
+        log("Saved " + pathKey);
+      } else {
+        zipFallbackBlobs.push({ path: pathKey, blob });
+        row.download_status = "zip_ready";
+        log("Queued for ZIP: " + pathKey);
+      }
+    } catch (err) {
+      row.download_status = "fetch_failed";
+      log("Fetch failed " + fileUrl + ": " + err.message);
+    }
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function runScan() {
+  const endpoint = $("#endpoint").value.trim();
+  const token = $("#token").value.trim();
+  const outfile = $("#outfile").value.trim() || "thinkific-text-files.csv";
+  let batchSize = parseInt($("#batch-size").value, 10);
+  if (!Number.isFinite(batchSize) || batchSize < 1) batchSize = 3;
+  batchSize = Math.min(10, batchSize);
+
+  if (!endpoint || !token) { alert("Endpoint and token are required."); return; }
+  if (!csvLessons.length) { alert("Upload a CSV with content_id (lesson IDs) first."); return; }
+
+  if (!dirHandle && window.showDirectoryPicker) {
+    const useFolder = confirm(
+      "No output folder selected.\n\nOK = choose a folder now (recommended)\nCancel = scan only and use ZIP fallback for files the browser can fetch"
+    );
+    if (useFolder) {
+      await pickFolder();
+      if (!dirHandle) {
+        log("No folder selected — will queue successful fetches for ZIP fallback.");
+      }
+    } else {
+      log("No folder — successful fetches will be available via Download ZIP fallback.");
+    }
+  } else if (!dirHandle) {
+    log("Folder API unavailable — successful fetches will be available via Download ZIP fallback.");
+  }
+
+  stopRequested = false;
+  tableRows = [];
+  zipFallbackBlobs = [];
+  renderTable();
+
+  $("#start").disabled = true;
+  $("#download").disabled = true;
+  $("#download-zip").disabled = true;
+  $("#stop").disabled = false;
+  $("#csv-file").disabled = true;
+  $("#log").textContent = "";
+  setBar(0);
+  setStatus("Starting…");
+  log("Processing " + csvLessons.length + " lesson ID(s) from CSV…");
+
+  const usedPaths = new Set();
+  let lessonsWithFiles = 0;
+  let savedCount = 0;
+  let failCount = 0;
+
+  try {
+    for (let i = 0; i < csvLessons.length; i += batchSize) {
+      if (stopRequested) break;
+      const batch = csvLessons.slice(i, i + batchSize);
+      const done = Math.min(i + batchSize, csvLessons.length);
+      setStatus("Lessons " + done + " / " + csvLessons.length + "…");
+      setBar(Math.round(100 * done / Math.max(1, csvLessons.length)));
+
+      const settled = await Promise.all(batch.map(stub => processLesson(endpoint, token, stub, usedPaths)));
+      for (const rows of settled) {
+        if (rows.length) lessonsWithFiles++;
+        for (const row of rows) {
+          tableRows.push(row);
+          if (row.download_status === "saved" || row.download_status === "zip_ready") savedCount++;
+          if (row.download_status === "fetch_failed") failCount++;
+        }
+      }
+      renderTable();
+    }
+
+    setBar(100);
+    if (stopRequested) {
+      setStatus("Stopped — " + tableRows.length + " file row(s) so far.");
+      log("Stopped by user.");
+    } else if (!tableRows.length) {
+      setStatus("Done — no file_uploads links found in these lessons.");
+      log("Checked " + csvLessons.length + " lessons; 0 file links.");
+    } else {
+      setStatus(
+        "Done — " + tableRows.length + " file(s) from " + lessonsWithFiles + " lesson(s)" +
+        " (" + savedCount + " downloaded/queued, " + failCount + " fetch failed)."
+      );
+      log("Finished. " + tableRows.length + " file URL rows.");
+      if (failCount && !savedCount) {
+        log("All file fetches failed (often CORS). Use Results CSV and open file_url links manually, or serve this page over http(s) from a host that can proxy downloads.");
+      }
+    }
+
+    const dlBtn = $("#download");
+    dlBtn.disabled = !tableRows.length;
+    dlBtn.onclick = () => {
+      const csv = toCSV(tableRows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = outfile;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    $("#download-zip").disabled = !zipFallbackBlobs.length;
+  } catch (err) {
+    console.error(err);
+    setStatus("Error — " + err.message);
+    log("Error: " + err.message);
+    if (err?.body) log("Details: " + JSON.stringify(err.body));
+    if (tableRows.length) {
+      $("#download").disabled = false;
+      $("#download").onclick = () => {
+        const csv = toCSV(tableRows);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = outfile;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+    }
+    $("#download-zip").disabled = !zipFallbackBlobs.length;
+  } finally {
+    $("#start").disabled = false;
+    $("#stop").disabled = true;
+    $("#csv-file").disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+const savedToken = localStorage.getItem(TOKEN_KEY);
+if (savedToken) {
+  $("#token").value = savedToken;
+  log("Loaded saved API key from this device.");
+}
+
+$("#save-token").addEventListener("click", () => {
+  const t = $("#token").value.trim();
+  if (!t) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, t);
+  log("API key saved.");
+});
+
+$("#csv-file").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  csvLessons = [];
+  $("#csv-meta").textContent = "No CSV loaded.";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    csvLessons = parseLessonCsv(text);
+    $("#csv-meta").textContent =
+      "Loaded " + csvLessons.length + " unique lesson ID(s) from " + file.name +
+      " (column content_id / lesson_id).";
+    log("CSV loaded: " + csvLessons.length + " lesson IDs.");
+    setStatus("CSV ready — " + csvLessons.length + " lessons. Choose a folder, then Scan + Download.");
+  } catch (err) {
+    $("#csv-meta").textContent = "CSV error: " + err.message;
+    log("CSV error: " + err.message);
+  }
+});
+
+$("#pick-folder").addEventListener("click", pickFolder);
+$("#start").addEventListener("click", runScan);
+$("#stop").addEventListener("click", () => {
+  stopRequested = true;
+  setStatus("Stopping after current batch…");
+  log("Stop requested…");
+});
+$("#download-zip").addEventListener("click", downloadZipFallback);
+
+const resizeBox = $("#table-resize");
+const resizeHandle = $("#table-resize-handle");
+if (resizeBox && resizeHandle) {
+  resizeHandle.addEventListener("mousedown", e => {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const sw = resizeBox.getBoundingClientRect().width;
+    const sh = resizeBox.getBoundingClientRect().height;
+    const onMove = ev => {
+      resizeBox.style.width = Math.max(600, sw + (ev.clientX - sx)) + "px";
+      resizeBox.style.height = Math.max(240, sh + (ev.clientY - sy)) + "px";
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+</script>
+</body>
+</html>

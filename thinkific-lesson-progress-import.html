@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Thinkific Lesson Progress Import</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#2b1633; --card:#2a1732; --ink:#f7f2ec; --muted:#d6c8bf; --accent:#f2c234; --accent2:#f4d45e; --border:#3a2241 }
+    body { margin:0; padding:24px; background:
+      radial-gradient(1100px 600px at 10% 20%, rgba(255,255,255,.08), transparent 60%),
+      radial-gradient(900px 500px at 90% 30%, rgba(244,212,94,.12), transparent 55%),
+      linear-gradient(180deg, #2b1633 0%, #24112c 100%);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .wrap { max-width:none; margin:0 auto; width:max-content; min-width:900px }
+    .card { background:linear-gradient(180deg, #2b1633, #24112c); border:1px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.45) }
+    h1 { margin:.2em 0 .35em; font-size:2.1rem; font-family: Georgia, "Times New Roman", Times, serif; letter-spacing:.2px }
+    .muted { color:var(--muted); font-size:.95rem }
+    .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand-left { display:flex; align-items:center; gap:12px }
+    .brand-name { font-weight:700; font-size:1.05rem; color:var(--ink) }
+    .brand-tag { font-size:.8rem; color:var(--muted) }
+    .brand-link { color:var(--ink); text-decoration:none; font-size:.85rem; border:1px solid rgba(247,242,236,.5); padding:6px 12px; border-radius:999px }
+    .brand-link:hover { background:rgba(247,242,236,.1) }
+    label { display:block; margin-top:12px; font-size:.95rem; color:#cbd5e1 }
+    .token-save { display:flex; gap:8px; align-items:center; margin-top:6px }
+    .token-save input { flex:1 }
+    .token-save button { flex:0 0 auto; padding:10px 14px; font-size:.95rem }
+    input { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #263249; background:#0a1220; color:var(--ink); box-sizing:border-box }
+    .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end }
+    .row > label { flex:1 1 220px; min-width:220px; display:flex; flex-direction:column }
+    .btns { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap }
+    button { flex:1; min-width:140px; padding:12px 16px; border-radius:999px; border:0; background:var(--accent); color:#2b1633; font-weight:700; font-size:1rem; cursor:pointer }
+    button.secondary { background:transparent; border:1px solid rgba(247,242,236,.6); color:var(--ink) }
+    button.danger { background:#ef4444; color:#fff }
+    button:disabled { opacity:.6; cursor:not-allowed }
+    .progress { position:relative; margin-top:14px; height:12px; background:#0a1220; border:1px solid #263249; border-radius:999px; overflow:hidden }
+    .bar { position:absolute; inset:0; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s linear }
+    .bar.indeterminate::before { content:""; position:absolute; left:-40%; top:0; width:40%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: slide 1.1s infinite }
+    @keyframes slide { 0% { left:-40% } 100% { left:100% } }
+    .status { margin-top:8px; font-size:.9rem; color:#cbd5e1 }
+    .log { margin-top:12px; background:#0a1220; border:1px solid #263249; border-radius:12px; padding:10px; font-size:.85rem; max-height:220px; overflow:auto; white-space:pre-wrap }
+    .preview-meta { margin-top:8px; font-size:.85rem; color:var(--muted) }
+    .instructions { margin-top:14px; background:rgba(15,23,42,.55); border:1px solid #2b3650; border-radius:14px; padding:14px 16px }
+    .instructions h2 { margin:0 0 8px; font-size:1.05rem; font-family: Georgia, "Times New Roman", Times, serif }
+    .instructions ol { margin:0; padding-left:20px; color:#cbd5e1 }
+    .instructions li { margin:6px 0 }
+    .table-resize { margin-top:16px; border:1px solid #263249; border-radius:14px; background:#0a1220; overflow:hidden; min-height:240px; width:1500px; padding:0 20px 20px 0; position:relative }
+    .table-resize-handle { position:absolute; right:6px; bottom:6px; width:18px; height:18px; cursor:se-resize }
+    .table-resize-handle::after { content:""; position:absolute; right:2px; bottom:2px; width:12px; height:12px; border-right:2px solid rgba(203,213,225,.6); border-bottom:2px solid rgba(203,213,225,.6) }
+    .table-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; margin:0 -20px -20px 0 }
+    .table-toolbar { display:flex; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #263249; background:rgba(15,23,42,.6) }
+    .table-toolbar .muted { font-size:.85rem }
+    table { width:100%; border-collapse:collapse; font-size:.85rem }
+    th, td { padding:8px 10px; border-bottom:1px solid #1f2a3e; vertical-align:top; white-space:nowrap; max-width:280px; overflow:hidden; text-overflow:ellipsis }
+    th { background:#0b1324; position:sticky; top:0; z-index:1; text-align:left }
+    .table-scroll { flex:1; min-height:200px; overflow:auto }
+    .empty { padding:14px; color:var(--muted); font-size:.9rem }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-left">
+          <div>
+            <div class="brand-name">Thinkific</div>
+            <div class="brand-tag">Lesson Progress Import</div>
+          </div>
+        </div>
+        <a class="brand-link" href="https://www.thinkific.com/" target="_blank" rel="noreferrer">thinkific.com</a>
+      </div>
+      <h1>Lesson Progress Import</h1>
+      <div class="muted">
+        For each CSV row: find or create the user, ensure course enrollment, load curriculum order,
+        then mark every lesson complete up to and including the target <code>lesson_id</code>.
+      </div>
+
+      <div class="instructions">
+        <h2>CSV headers</h2>
+        <ol>
+          <li><code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>course_id</code>, <code>lesson_id</code></li>
+          <li>User lookup via GraphQL <code>userByEmail</code>; create via REST <code>POST /users</code> if missing</li>
+          <li>Enrollment check/create via REST <code>/enrollments</code></li>
+          <li>Complete lessons in curriculum order through the target lesson</li>
+        </ol>
+      </div>
+
+      <div class="row">
+        <label>GraphQL Endpoint
+          <input id="gql-endpoint" value="https://api.thinkific.com/beta/graphql">
+        </label>
+        <label>REST Base
+          <input id="rest-base" value="https://api.thinkific.com/api/public/v1">
+        </label>
+      </div>
+
+      <label>Bearer / Access Token (saved on this device)
+        <div class="token-save">
+          <input id="token" type="password" placeholder="Paste your API token here">
+          <button id="save-token" type="button" class="secondary">Save API Key</button>
+        </div>
+      </label>
+
+      <label>CSV File
+        <input id="csv-file" type="file" accept=".csv,text/csv">
+      </label>
+      <div id="csv-meta" class="preview-meta">No CSV loaded.</div>
+
+      <div class="btns">
+        <button id="start">Run Import</button>
+        <button id="stop" class="danger" disabled>Stop</button>
+        <button id="download-template" class="secondary">Download CSV Template</button>
+        <button id="download-results" class="secondary" disabled>Download Results CSV</button>
+      </div>
+
+      <div class="progress"><div id="bar" class="bar" style="width:0%"></div></div>
+      <div id="status" class="status">Idle</div>
+      <div id="log" class="log"></div>
+
+      <div class="table-resize" id="table-resize">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="muted" id="table-meta">No rows loaded.</div>
+          </div>
+          <div class="table-scroll">
+            <table id="results-table" aria-live="polite"></table>
+          </div>
+          <div id="table-empty" class="empty">Upload a CSV to see parsed rows.</div>
+        </div>
+        <div class="table-resize-handle" id="table-resize-handle" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (m) => {
+  const el = $("#log");
+  el.textContent += (el.textContent ? "\n" : "") + m;
+  el.scrollTop = el.scrollHeight;
+};
+const setStatus = (t) => { $("#status").textContent = t; };
+const setBar = (pct) => {
+  const b = $("#bar");
+  b.classList.remove("indeterminate");
+  b.style.width = Math.max(0, Math.min(100, pct)) + "%";
+};
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const TOKEN_KEY = "thinkific-lesson-progress-import-token";
+const RATE_LIMIT_WAIT_MS = 60 * 1000;
+const CHAPTERS_PAGE_SIZE = 25;
+const LESSONS_PAGE_SIZE = 50;
+
+const QUERY_USER_BY_EMAIL = `query UserByEmail($email: EmailAddress!) {
+  userByEmail(email: $email) {
+    id
+    email
+  }
+}`;
+
+const QUERY_COURSE_CHAPTERS = `query CourseChapters($id: ID!, $after: String) {
+  course(id: $id) {
+    id
+    name
+    curriculum {
+      chapters(first: ${CHAPTERS_PAGE_SIZE}, after: $after) {
+        nodes { id }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`;
+
+const QUERY_CHAPTER_LESSONS = `query ChapterLessons($id: ID!, $after: String) {
+  chapter(id: $id) {
+    id
+    lessons(first: ${LESSONS_PAGE_SIZE}, after: $after) {
+      nodes { id title }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
+const MUTATION_MARK_COMPLETE = `mutation MarkLessonCompleteForUser($input: MarkLessonCompleteForUserInput!) {
+  markLessonCompleteForUser(input: $input) {
+    clientMutationId
+    userErrors {
+      code
+      message
+      path
+    }
+  }
+}`;
+
+const COLUMN_DEFS = [
+  { id: "email", label: "email", get: r => r.email },
+  { id: "first_name", label: "first_name", get: r => r.first_name },
+  { id: "last_name", label: "last_name", get: r => r.last_name },
+  { id: "course_id", label: "course_id", get: r => r.course_id },
+  { id: "lesson_id", label: "lesson_id", get: r => r.lesson_id },
+  { id: "user_id", label: "user_id", get: r => r.user_id },
+  { id: "user_action", label: "user_action", get: r => r.user_action },
+  { id: "enrollment_action", label: "enrollment_action", get: r => r.enrollment_action },
+  { id: "lessons_completed", label: "lessons_completed", get: r => r.lessons_completed },
+  { id: "status", label: "status", get: r => r.status },
+  { id: "message", label: "message", get: r => r.message }
+];
+
+let tableRows = [];
+let stopRequested = false;
+let isRunning = false;
+const courseLessonCache = new Map(); // courseId -> { orderedLessonIds: string[], byNumeric: Map }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function csvParse(text) {
+  const rows = [];
+  let cur = "";
+  let row = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQuotes = false; continue; }
+      cur += ch;
+      continue;
+    }
+    if (ch === '"') { inQuotes = true; continue; }
+    if (ch === ",") { row.push(cur); cur = ""; continue; }
+    if (ch === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; continue; }
+    if (ch === "\r") continue;
+    cur += ch;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function normalizeHeader(h) {
+  return String(h || "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function findCol(headers, candidates) {
+  const norm = headers.map(normalizeHeader);
+  for (const c of candidates) {
+    const i = norm.indexOf(c);
+    if (i !== -1) return i;
+  }
+  return -1;
+}
+
+function extractNumericId(id) {
+  if (id == null || id === "") return "";
+  const s = String(id);
+  const m = s.match(/(\d+)\s*$/);
+  return m ? m[1] : s;
+}
+
+function idsMatch(a, b) {
+  if (a == null || b == null || a === "" || b === "") return false;
+  if (String(a) === String(b)) return true;
+  return extractNumericId(a) === extractNumericId(b) && extractNumericId(a) !== "";
+}
+
+function nowActivatedAt() {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function toResultsCsv(rows) {
+  const lines = [COLUMN_DEFS.map(c => c.id).map(csvEscape).join(",")];
+  for (const r of rows) lines.push(COLUMN_DEFS.map(c => c.get(r)).map(csvEscape).join(","));
+  return lines.join("\n");
+}
+
+function renderTable() {
+  const table = $("#results-table");
+  const empty = $("#table-empty");
+  const meta = $("#table-meta");
+  table.innerHTML = "";
+
+  if (!tableRows.length) {
+    empty.style.display = "block";
+    meta.textContent = "No rows loaded.";
+    return;
+  }
+
+  const ok = tableRows.filter(r => r.status === "Done").length;
+  const fail = tableRows.filter(r => r.status === "Failed").length;
+  meta.textContent = tableRows.length + " rows — " + ok + " done, " + fail + " failed";
+  empty.style.display = "none";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const col of COLUMN_DEFS) {
+    const th = document.createElement("th");
+    th.textContent = col.label;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of tableRows) {
+    const tr = document.createElement("tr");
+    for (const col of COLUMN_DEFS) {
+      const td = document.createElement("td");
+      const val = col.get(row) || "";
+      td.textContent = val;
+      if (val.length > 80) td.title = val;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+}
+
+// ---------------------------------------------------------------------------
+// GraphQL / REST
+// ---------------------------------------------------------------------------
+
+function attachRateLimit(err, payload) {
+  if (payload?.extensions?.rateLimit) err.rateLimit = payload.extensions.rateLimit;
+}
+
+function isRateLimitError(err) {
+  if (!err) return false;
+  if (err.status === 429) return true;
+  if (err.code === "RATE_LIMITED") return true;
+  if (Array.isArray(err.graphQLErrors)) {
+    if (err.graphQLErrors.some(e => e.extensions?.code === "RATE_LIMITED")) return true;
+    if (err.graphQLErrors.some(e => e.extensions?.response?.status === 429)) return true;
+  }
+  const msg = typeof err.message === "string" ? err.message.toLowerCase() : "";
+  return msg.includes("rate limit") || msg.includes("429") || msg.includes("too many requests");
+}
+
+function getRateLimitWait(err) {
+  const rl = err?.rateLimit;
+  let waitMs = RATE_LIMIT_WAIT_MS;
+  if (rl?.resetAt) {
+    const resetAtMs = new Date(rl.resetAt).getTime();
+    if (Number.isFinite(resetAtMs)) {
+      const diff = resetAtMs - Date.now();
+      if (diff > 0) waitMs = Math.max(RATE_LIMIT_WAIT_MS, Math.min(diff, 5 * 60 * 1000));
+    }
+  }
+  return waitMs;
+}
+
+async function gql(endpoint, token, query, variables) {
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ query, variables: variables || {} })
+  });
+
+  let json;
+  try { json = await resp.json(); }
+  catch {
+    if (!resp.ok) throw Object.assign(new Error("HTTP " + resp.status), { status: resp.status });
+    throw new Error("Invalid JSON response.");
+  }
+
+  if (!resp.ok) {
+    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
+    err.status = resp.status;
+    err.body = json;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  if (json.errors) {
+    const msg = json.errors.map(e => e.message).join("; ");
+    const err = new Error("GraphQL error: " + msg);
+    err.graphQLErrors = json.errors;
+    const code = json.errors.find(e => e.extensions?.code)?.extensions?.code;
+    if (code) err.code = code;
+    const has429 = json.errors.some(e =>
+      e.extensions?.response?.status === 429 ||
+      /429|too many requests/i.test(String(e.message || ""))
+    );
+    if (has429 || /429|too many requests/i.test(msg)) err.status = 429;
+    attachRateLimit(err, json);
+    throw err;
+  }
+
+  return { data: json.data, rateLimit: json?.extensions?.rateLimit };
+}
+
+async function gqlWithRetry(endpoint, token, query, variables) {
+  while (true) {
+    if (stopRequested) throw new Error("Stopped by user.");
+    try {
+      const result = await gql(endpoint, token, query, variables);
+      if (result.rateLimit && result.rateLimit.remaining != null && Number(result.rateLimit.remaining) < 250) {
+        const waitMs = getRateLimitWait({ rateLimit: result.rateLimit });
+        setStatus("Cooldown — waiting " + Math.ceil(waitMs / 1000) + "s…");
+        log("Rate limit low. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+        $("#bar").classList.add("indeterminate");
+        await sleep(waitMs);
+      }
+      return result.data;
+    } catch (err) {
+      if (stopRequested) throw new Error("Stopped by user.");
+      if (isRateLimitError(err)) {
+        const waitMs = getRateLimitWait(err);
+        setStatus("Rate limited. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+        log("429 / rate limit. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+        $("#bar").classList.add("indeterminate");
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+async function rest(restBase, token, method, path, body, attempt = 1) {
+  const url = restBase.replace(/\/$/, "") + path;
+  const resp = await fetch(url, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: body != null ? JSON.stringify(body) : undefined
+  });
+
+  if (resp.status === 429 && attempt <= 8) {
+    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+    const waitMs = Math.max(RATE_LIMIT_WAIT_MS, (retryAfter || 60) * 1000);
+    setStatus("REST 429. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+    log("REST rate limited. Waiting " + Math.ceil(waitMs / 1000) + "s…");
+    $("#bar").classList.add("indeterminate");
+    await sleep(waitMs);
+    return rest(restBase, token, method, path, body, attempt + 1);
+  }
+
+  let json = null;
+  try { json = await resp.json(); } catch { /* empty */ }
+
+  if (!resp.ok) {
+    const detail = json?.error || json?.message || json?.errors || resp.statusText;
+    const err = new Error("HTTP " + resp.status + " - " + (typeof detail === "string" ? detail : JSON.stringify(detail)));
+    err.status = resp.status;
+    err.body = json;
+    throw err;
+  }
+
+  return { status: resp.status, json };
+}
+
+function pickUserIdFromRest(json) {
+  return (
+    json?.id ||
+    json?.user?.id ||
+    json?.user_id ||
+    json?.data?.id ||
+    json?.data?.user?.id ||
+    null
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Domain steps
+// ---------------------------------------------------------------------------
+
+async function resolveUser(gqlEndpoint, restBase, token, row) {
+  const data = await gqlWithRetry(gqlEndpoint, token, QUERY_USER_BY_EMAIL, { email: row.email });
+  const existing = data?.userByEmail;
+  if (existing?.id) {
+    return { userId: String(existing.id), action: "found" };
+  }
+
+  const { status, json } = await rest(restBase, token, "POST", "/users", {
+    first_name: row.first_name,
+    last_name: row.last_name,
+    email: row.email
+  });
+
+  const userId = pickUserIdFromRest(json);
+  if (!userId) throw new Error("User create returned " + status + " but no id.");
+  return { userId: String(userId), action: "created" };
+}
+
+async function ensureEnrollment(restBase, token, userId, courseId) {
+  const numericUser = extractNumericId(userId);
+  const numericCourse = extractNumericId(courseId);
+  const qs =
+    "?page=1&limit=25" +
+    "&query%5Buser_id%5D=" + encodeURIComponent(numericUser) +
+    "&query%5Bcourse_id%5D=" + encodeURIComponent(numericCourse);
+
+  const { json } = await rest(restBase, token, "GET", "/enrollments" + qs, null);
+  const items = json?.items || json?.enrollments || [];
+  if (Array.isArray(items) && items.length > 0) {
+    return { action: "already_enrolled", enrollmentId: items[0].id || "" };
+  }
+
+  const { status, json: created } = await rest(restBase, token, "POST", "/enrollments", {
+    course_id: Number(numericCourse) || numericCourse,
+    user_id: Number(numericUser) || numericUser,
+    activated_at: nowActivatedAt()
+  });
+
+  return {
+    action: "enrolled",
+    enrollmentId: created?.id || created?.enrollment?.id || "",
+    httpStatus: status
+  };
+}
+
+async function fetchOrderedLessonsForCourse(gqlEndpoint, token, courseId) {
+  const cacheKey = String(courseId);
+  if (courseLessonCache.has(cacheKey)) return courseLessonCache.get(cacheKey);
+
+  const chapterIds = [];
+  let chapterAfter = null;
+  while (true) {
+    if (stopRequested) throw new Error("Stopped by user.");
+    const data = await gqlWithRetry(gqlEndpoint, token, QUERY_COURSE_CHAPTERS, {
+      id: courseId,
+      after: chapterAfter
+    });
+    const course = data?.course;
+    if (!course) throw new Error("Course not found: " + courseId);
+    const conn = course.curriculum?.chapters;
+    if (!conn) throw new Error("Course " + courseId + " has no curriculum.chapters.");
+    for (const ch of (conn.nodes || [])) {
+      if (ch?.id) chapterIds.push(ch.id);
+    }
+    if (conn.pageInfo?.hasNextPage) chapterAfter = conn.pageInfo.endCursor;
+    else break;
+  }
+
+  const ordered = [];
+  for (const chapterId of chapterIds) {
+    let lessonAfter = null;
+    while (true) {
+      if (stopRequested) throw new Error("Stopped by user.");
+      const data = await gqlWithRetry(gqlEndpoint, token, QUERY_CHAPTER_LESSONS, {
+        id: chapterId,
+        after: lessonAfter
+      });
+      const conn = data?.chapter?.lessons;
+      if (!conn) break;
+      for (const lesson of (conn.nodes || [])) {
+        if (lesson?.id) ordered.push({ id: String(lesson.id), title: lesson.title || "" });
+      }
+      if (conn.pageInfo?.hasNextPage) lessonAfter = conn.pageInfo.endCursor;
+      else break;
+    }
+  }
+
+  const result = { ordered, courseId: cacheKey };
+  courseLessonCache.set(cacheKey, result);
+  log("Cached curriculum for course " + courseId + ": " + ordered.length + " lessons across " + chapterIds.length + " chapters.");
+  return result;
+}
+
+function lessonsThroughTarget(ordered, targetLessonId) {
+  const idx = ordered.findIndex(l => idsMatch(l.id, targetLessonId));
+  if (idx === -1) return null;
+  return ordered.slice(0, idx + 1);
+}
+
+async function markLessonsComplete(gqlEndpoint, token, userId, lessons, onProgress) {
+  let completed = 0;
+  for (const lesson of lessons) {
+    if (stopRequested) throw new Error("Stopped by user.");
+    const data = await gqlWithRetry(gqlEndpoint, token, MUTATION_MARK_COMPLETE, {
+      input: {
+        clientMutationId: "LessonProgressImport",
+        lessonId: lesson.id,
+        userId: String(userId)
+      }
+    });
+    const payload = data?.markLessonCompleteForUser;
+    const errors = payload?.userErrors || [];
+    if (errors.length) {
+      const msg = errors.map(e => e.message || e.code).join("; ");
+      throw new Error("markLessonCompleteForUser failed on lesson " + lesson.id + ": " + msg);
+    }
+    completed++;
+    if (onProgress) onProgress(completed, lessons.length, lesson);
+  }
+  return completed;
+}
+
+// ---------------------------------------------------------------------------
+// CSV load / template
+// ---------------------------------------------------------------------------
+
+function parseCsv(text) {
+  const rows = csvParse(text).filter(r => r.some(cell => String(cell || "").trim() !== ""));
+  if (!rows.length) throw new Error("CSV appears empty.");
+
+  const headers = rows[0];
+  const emailIdx = findCol(headers, ["email", "email_address"]);
+  const firstIdx = findCol(headers, ["first_name", "firstname", "first"]);
+  const lastIdx = findCol(headers, ["last_name", "lastname", "last"]);
+  const courseIdx = findCol(headers, ["course_id", "courseid"]);
+  const lessonIdx = findCol(headers, ["lesson_id", "lessonid"]);
+
+  if (emailIdx === -1 || firstIdx === -1 || lastIdx === -1 || courseIdx === -1 || lessonIdx === -1) {
+    throw new Error("CSV must include email, first_name, last_name, course_id, lesson_id. Found: " + headers.join(", "));
+  }
+
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const email = String(row[emailIdx] || "").trim();
+    const first_name = String(row[firstIdx] || "").trim();
+    const last_name = String(row[lastIdx] || "").trim();
+    const course_id = String(row[courseIdx] || "").trim();
+    const lesson_id = String(row[lessonIdx] || "").trim();
+    if (!email && !course_id && !lesson_id) continue;
+    out.push({
+      email,
+      first_name,
+      last_name,
+      course_id,
+      lesson_id,
+      user_id: "",
+      user_action: "",
+      enrollment_action: "",
+      lessons_completed: "",
+      status: "Pending",
+      message: ""
+    });
+  }
+  if (!out.length) throw new Error("No data rows found.");
+  return out;
+}
+
+function downloadTemplate() {
+  const csv = "email,first_name,last_name,course_id,lesson_id\nbob@example.com,Bob,Smith,12345,67890\n";
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-lesson-progress-template.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Template downloaded.");
+}
+
+function downloadResults() {
+  if (!tableRows.length) return;
+  const blob = new Blob([toResultsCsv(tableRows)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "thinkific-lesson-progress-results.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  log("Results CSV downloaded.");
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function runImport() {
+  const gqlEndpoint = $("#gql-endpoint").value.trim();
+  const restBase = $("#rest-base").value.trim();
+  const token = $("#token").value.trim();
+
+  if (!gqlEndpoint || !restBase || !token) {
+    alert("GraphQL endpoint, REST base, and token are required.");
+    return;
+  }
+  if (!tableRows.length) {
+    alert("Upload a CSV first.");
+    return;
+  }
+
+  isRunning = true;
+  stopRequested = false;
+  $("#start").disabled = true;
+  $("#stop").disabled = false;
+  $("#csv-file").disabled = true;
+  $("#download-results").disabled = true;
+  setBar(0);
+  log("Starting import for " + tableRows.length + " row(s)…");
+
+  let done = 0;
+  let failed = 0;
+
+  try {
+    for (let i = 0; i < tableRows.length; i++) {
+      if (stopRequested) {
+        for (let j = i; j < tableRows.length; j++) {
+          if (tableRows[j].status === "Pending") {
+            tableRows[j].status = "Stopped";
+            tableRows[j].message = "Stopped by user.";
+          }
+        }
+        renderTable();
+        break;
+      }
+
+      const row = tableRows[i];
+      if (row.status !== "Pending" && row.status !== "Stopped") continue;
+
+      setStatus("Row " + (i + 1) + " / " + tableRows.length + " — " + row.email);
+      setBar(Math.round(100 * i / Math.max(1, tableRows.length)));
+      row.status = "Running";
+      row.message = "";
+      renderTable();
+
+      try {
+        if (!row.email) throw new Error("Missing email.");
+        if (!row.course_id) throw new Error("Missing course_id.");
+        if (!row.lesson_id) throw new Error("Missing lesson_id.");
+
+        // 1) User
+        setStatus("Row " + (i + 1) + " — resolve user…");
+        const user = await resolveUser(gqlEndpoint, restBase, token, row);
+        row.user_id = user.userId;
+        row.user_action = user.action;
+        log("Row " + (i + 1) + ": user " + user.action + " → " + user.userId);
+
+        // 2) Enrollment
+        setStatus("Row " + (i + 1) + " — ensure enrollment…");
+        const enroll = await ensureEnrollment(restBase, token, user.userId, row.course_id);
+        row.enrollment_action = enroll.action;
+        log("Row " + (i + 1) + ": enrollment " + enroll.action);
+
+        // 3) Curriculum + complete through target
+        setStatus("Row " + (i + 1) + " — load curriculum…");
+        const curriculum = await fetchOrderedLessonsForCourse(gqlEndpoint, token, row.course_id);
+        const toComplete = lessonsThroughTarget(curriculum.ordered, row.lesson_id);
+        if (!toComplete) {
+          throw new Error(
+            "lesson_id " + row.lesson_id + " not found in course " + row.course_id +
+            " (" + curriculum.ordered.length + " lessons)."
+          );
+        }
+
+        setStatus("Row " + (i + 1) + " — marking " + toComplete.length + " lesson(s) complete…");
+        const completed = await markLessonsComplete(
+          gqlEndpoint,
+          token,
+          user.userId,
+          toComplete,
+          (n, total, lesson) => {
+            setStatus("Row " + (i + 1) + " — complete " + n + " / " + total + " (" + (lesson.title || lesson.id) + ")");
+          }
+        );
+        row.lessons_completed = String(completed);
+        row.status = "Done";
+        row.message = "Completed " + completed + " lesson(s) through " + row.lesson_id + ".";
+        done++;
+        log("Row " + (i + 1) + ": done — " + completed + " lessons marked complete.");
+      } catch (err) {
+        if (String(err.message || "").includes("Stopped by user")) {
+          row.status = "Stopped";
+          row.message = "Stopped by user.";
+        } else {
+          row.status = "Failed";
+          row.message = err.message || String(err);
+          failed++;
+          log("Row " + (i + 1) + " failed: " + row.message);
+        }
+      }
+
+      renderTable();
+    }
+
+    setBar(100);
+    if (stopRequested) {
+      setStatus("Stopped — " + done + " done, " + failed + " failed.");
+    } else {
+      setStatus("Finished — " + done + " done, " + failed + " failed.");
+      log("Import finished.");
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus("Error — " + err.message);
+    log("Error: " + err.message);
+  } finally {
+    isRunning = false;
+    $("#start").disabled = false;
+    $("#stop").disabled = true;
+    $("#csv-file").disabled = false;
+    $("#download-results").disabled = !tableRows.length;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+const savedToken = localStorage.getItem(TOKEN_KEY);
+if (savedToken) {
+  $("#token").value = savedToken;
+  log("Loaded saved API key from this device.");
+}
+
+$("#save-token").addEventListener("click", () => {
+  const t = $("#token").value.trim();
+  if (!t) { alert("Enter a token before saving."); return; }
+  localStorage.setItem(TOKEN_KEY, t);
+  log("API key saved.");
+});
+
+$("#csv-file").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  tableRows = [];
+  $("#download-results").disabled = true;
+  $("#csv-meta").textContent = "No CSV loaded.";
+  renderTable();
+  if (!file) return;
+  try {
+    const text = await file.text();
+    tableRows = parseCsv(text);
+    $("#csv-meta").textContent = "Loaded " + tableRows.length + " row(s) from " + file.name + ".";
+    log("CSV loaded: " + tableRows.length + " rows.");
+    setStatus("CSV ready — click Run Import.");
+    renderTable();
+  } catch (err) {
+    $("#csv-meta").textContent = "CSV error: " + err.message;
+    log("CSV error: " + err.message);
+  }
+});
+
+$("#start").addEventListener("click", runImport);
+$("#stop").addEventListener("click", () => {
+  stopRequested = true;
+  setStatus("Stopping after current step…");
+  log("Stop requested…");
+});
+$("#download-template").addEventListener("click", downloadTemplate);
+$("#download-results").addEventListener("click", downloadResults);
+
+const resizeBox = $("#table-resize");
+const resizeHandle = $("#table-resize-handle");
+if (resizeBox && resizeHandle) {
+  resizeHandle.addEventListener("mousedown", e => {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const sw = resizeBox.getBoundingClientRect().width;
+    const sh = resizeBox.getBoundingClientRect().height;
+    const onMove = ev => {
+      resizeBox.style.width = Math.max(600, sw + (ev.clientX - sx)) + "px";
+      resizeBox.style.height = Math.max(240, sh + (ev.clientY - sy)) + "px";
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+</script>
+</body>
+</html>
