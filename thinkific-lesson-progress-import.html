@@ -104,12 +104,14 @@
       <label>CSV File
         <input id="csv-file" type="file" accept=".csv,text/csv">
       </label>
-      <div id="csv-meta" class="preview-meta">No CSV loaded.</div>
+      <div class="btns" style="margin-top:8px">
+        <button id="download-template" type="button" class="secondary">Download CSV Template</button>
+      </div>
+      <div id="csv-meta" class="preview-meta">No CSV loaded. Template headers: email, first_name, last_name, course_id, lesson_id</div>
 
       <div class="btns">
         <button id="start">Run Import</button>
         <button id="stop" class="danger" disabled>Stop</button>
-        <button id="download-template" class="secondary">Download CSV Template</button>
         <button id="download-results" class="secondary" disabled>Download Results CSV</button>
       </div>
 
@@ -654,7 +656,7 @@ function parseCsv(text) {
 }
 
 function downloadTemplate() {
-  const csv = "email,first_name,last_name,course_id,lesson_id\nbob@example.com,Bob,Smith,12345,67890\n";
+  const csv = "email,first_name,last_name,course_id,lesson_id\n";
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -664,7 +666,7 @@ function downloadTemplate() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  log("Template downloaded.");
+  log("Empty CSV template downloaded.");
 }
 
 function downloadResults() {
