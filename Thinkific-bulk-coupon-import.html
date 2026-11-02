@@ -51,6 +51,16 @@
     .preview-table th { background:#0b1324; position:sticky; top:0; text-align:left }
     .preview-highlight { background:rgba(242,194,52,.12) }
     .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #263249; font-size:.75rem; color:#cbd5e1 }
+    .combobox { position:relative; margin-top:6px }
+    .combobox-input-row { display:flex; gap:8px; align-items:center }
+    .combobox-input-row input { flex:1 }
+    .combobox-list { display:none; position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); max-height:260px; overflow:auto; margin:0; padding:6px; list-style:none; background:#0a1220; border:1px solid #263249; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.45) }
+    .combobox.open .combobox-list { display:block }
+    .combobox-option { padding:10px 12px; border-radius:10px; cursor:pointer; color:var(--ink); font-size:.9rem }
+    .combobox-option:hover, .combobox-option.active { background:rgba(242,194,52,.14) }
+    .combobox-option .id { color:var(--muted); font-size:.8rem; margin-left:6px }
+    .combobox-empty { padding:10px 12px; color:var(--muted); font-size:.9rem }
+    .combobox-selected { margin-top:8px; font-size:.85rem; color:#cbd5e1 }
   </style>
 </head>
 <body>
@@ -71,26 +81,28 @@
       
       <label>Bearer Token (saved on this device)
         <div class="token-save">
-          <input id="token" value="add access token here!">
+          <input id="token" type="password" placeholder="Paste your API token here" autocomplete="off">
           <button id="save-token" type="button" class="secondary">Save API Key</button>
         </div>
       </label>
       <br>
-      <div class="muted"><h2>Step: 2</h2><p>Load your promotions, select the promotion you want to import coupons for.</p></div>
+      <div class="muted"><h2>Step: 2</h2><p>Load your promotions, then search and select the promotion you want to import coupons for.</p></div>
       
       <div class="btns">
         <button id="load-promotions">Load Promotions</button>
-        <button id="clear-promotions" class="secondary" disabled>Clear</button>
+        <button id="reset-selection" class="secondary" disabled>Reset Selection</button>
+        <button id="clear-promotions" class="secondary" disabled>Clear List</button>
       </div>
 
-      <div class="row">
-        <label>Promotion Search
-          <input id="promo-search" placeholder="Search promotions by name or ID">
-        </label>
-        <label>Promotion
-          <select id="promo-select" disabled></select>
-        </label>
-      </div>
+      <label>Promotion
+        <div id="promo-combobox" class="combobox">
+          <div class="combobox-input-row">
+            <input id="promo-search" type="search" placeholder="Search and select a promotion…" disabled autocomplete="off" aria-autocomplete="list" aria-controls="promo-list" aria-expanded="false">
+          </div>
+          <ul id="promo-list" class="combobox-list" role="listbox"></ul>
+        </div>
+        <div id="promo-selected" class="combobox-selected">No promotion selected.</div>
+      </label>
 
       <div class="section-title">Promotion Details</div>
       <div class="row">
@@ -164,9 +176,12 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const API_ENDPOINT = "https://api.thinkific.com/api/public/v1/promotions";
 const COUPON_ENDPOINT = "https://api.thinkific.com/api/public/v1/coupons";
 const PAGE_LIMIT = 250;
+const RATE_LIMIT_WAIT_MS = 60 * 1000;
 const TOKEN_KEY = "thinkific-bulk-coupon-token";
 
 let promotions = [];
+let selectedPromoId = "";
+let promoHighlightIndex = -1;
 let couponCsvCache = null;
 let stopRequested = false;
 let couponRows = [];
@@ -457,6 +472,16 @@ function getNextPage(pagination) {
   return Number.isFinite(num) && num > 0 ? num : null;
 }
 
+async function waitForRateLimit(resp, attempt) {
+  const retryAfter = Number(resp.headers.get("Retry-After") || "0");
+  const waitMs = Math.max(RATE_LIMIT_WAIT_MS, (retryAfter || 60) * 1000);
+  const secs = Math.ceil(waitMs / 1000);
+  setStatus("Rate limited (429). Waiting " + secs + "s… (attempt " + attempt + ")");
+  log("429 — waiting " + secs + "s, then retrying…");
+  $("#bar").classList.add("indeterminate");
+  await sleep(waitMs);
+}
+
 async function requestJson(url, token, attempt = 1) {
   const resp = await fetch(url, {
     method: "GET",
@@ -466,10 +491,8 @@ async function requestJson(url, token, attempt = 1) {
     }
   });
 
-  if (resp.status === 429 && attempt <= 3) {
-    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
-    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
-    await sleep(waitMs);
+  if (resp.status === 429 && attempt <= 8) {
+    await waitForRateLimit(resp, attempt);
     return requestJson(url, token, attempt + 1);
   }
 
@@ -501,10 +524,8 @@ async function requestPostJson(url, token, body, attempt = 1) {
     body: JSON.stringify(body)
   });
 
-  if (resp.status === 429 && attempt <= 3) {
-    const retryAfter = Number(resp.headers.get("Retry-After") || "0");
-    const waitMs = Math.max(1000, Math.min(60000, (retryAfter || 2) * 1000));
-    await sleep(waitMs);
+  if (resp.status === 429 && attempt <= 8) {
+    await waitForRateLimit(resp, attempt);
     return requestPostJson(url, token, body, attempt + 1);
   }
 
@@ -560,55 +581,156 @@ function buildOptionLabel(promo) {
   return promo.name + " (ID: " + promo.id + ")";
 }
 
-function renderPromotionOptions() {
-  const select = $("#promo-select");
-  const search = $("#promo-search").value.trim().toLowerCase();
-  const prev = select.value;
-  const filtered = promotions.filter(p => {
-    if (!search) return true;
-    return p.name.toLowerCase().includes(search);
+function getSelectedPromo() {
+  if (!selectedPromoId) return null;
+  return promotions.find(p => p.id === selectedPromoId) || null;
+}
+
+function filterPromotions(query) {
+  const search = String(query || "").trim().toLowerCase();
+  if (!search) return promotions.slice();
+  return promotions.filter(p => {
+    const name = String(p.name || "").toLowerCase();
+    const id = String(p.id || "").toLowerCase();
+    const label = buildOptionLabel(p).toLowerCase();
+    return name.includes(search) || id.includes(search) || label.includes(search);
   });
+}
 
-  select.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.disabled = true;
-  placeholder.selected = true;
-  placeholder.textContent = filtered.length ? "Select a promotion" : "No matches";
-  select.appendChild(placeholder);
-
-  for (const promo of filtered) {
-    const option = document.createElement("option");
-    option.value = promo.id;
-    option.textContent = buildOptionLabel(promo);
-    select.appendChild(option);
-  }
-
-  if (prev && filtered.some(p => p.id === prev)) {
-    select.value = prev;
-  }
-
-  select.disabled = promotions.length === 0;
-  updatePromotionDetails();
-
-  const meta = $("#promo-meta");
-  if (!promotions.length) {
-    meta.textContent = "No promotions loaded.";
-  } else if (search) {
-    meta.textContent = filtered.length + " of " + promotions.length + " promotions match.";
-  } else {
-    meta.textContent = promotions.length + " promotions loaded.";
-  }
+function setPromoDropdownOpen(open) {
+  const box = $("#promo-combobox");
+  const input = $("#promo-search");
+  if (!box || !input) return;
+  box.classList.toggle("open", !!open);
+  input.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function updatePromotionDetails() {
-  const id = $("#promo-select").value || "";
-  const promo = promotions.find(p => p.id === id) || null;
+  const promo = getSelectedPromo();
   $("#promo-detail-name").textContent = promo ? promo.name : "";
   $("#promo-detail-type").textContent = promo ? promo.discountType : "";
   $("#promo-detail-amount").textContent = promo ? promo.amount : "";
   $("#promo-detail-duration").textContent = promo ? promo.duration : "";
   $("#promo-detail-created").textContent = promo ? formatDateOnly(promo.createdAt) : "";
+  $("#promo-selected").textContent = promo
+    ? "Selected: " + buildOptionLabel(promo)
+    : "No promotion selected.";
+  $("#reset-selection").disabled = !promo;
+  updateLoadButtonLabel();
+}
+
+function updateLoadButtonLabel() {
+  $("#load-promotions").textContent = promotions.length ? "Reload Promotions" : "Load Promotions";
+}
+
+function resetPromotionSelection(opts = {}) {
+  const silent = !!opts.silent;
+  const hadSelection = !!selectedPromoId;
+  selectedPromoId = "";
+  promoHighlightIndex = -1;
+  $("#promo-search").value = "";
+  setPromoDropdownOpen(false);
+  updatePromotionDetails();
+  refreshPromoCombobox();
+  if (!silent && hadSelection) log("Promotion selection reset.");
+}
+
+function selectPromotion(promo, opts = {}) {
+  const keepQuery = !!opts.keepQuery;
+  selectedPromoId = promo ? String(promo.id) : "";
+  if (promo && !keepQuery) {
+    $("#promo-search").value = buildOptionLabel(promo);
+  }
+  if (!promo && !keepQuery) {
+    $("#promo-search").value = "";
+  }
+  promoHighlightIndex = -1;
+  setPromoDropdownOpen(false);
+  updatePromotionDetails();
+  updatePromoMeta(filterPromotions($("#promo-search").value));
+}
+
+function updatePromoMeta(filtered) {
+  const meta = $("#promo-meta");
+  const query = $("#promo-search").value.trim();
+  if (!promotions.length) {
+    meta.textContent = "No promotions loaded.";
+  } else if (query && !selectedPromoId) {
+    meta.textContent = filtered.length + " of " + promotions.length + " promotions match \"" + query + "\".";
+  } else if (selectedPromoId) {
+    meta.textContent = promotions.length + " promotions loaded.";
+  } else {
+    meta.textContent = promotions.length + " promotions loaded. Type to search and select.";
+  }
+}
+
+function renderPromoList(filtered) {
+  const list = $("#promo-list");
+  list.innerHTML = "";
+
+  if (!promotions.length) {
+    const empty = document.createElement("li");
+    empty.className = "combobox-empty";
+    empty.textContent = "Load promotions first.";
+    list.appendChild(empty);
+    return;
+  }
+
+  if (!filtered.length) {
+    const empty = document.createElement("li");
+    empty.className = "combobox-empty";
+    empty.textContent = "No matches.";
+    list.appendChild(empty);
+    return;
+  }
+
+  const max = Math.min(filtered.length, 100);
+  for (let i = 0; i < max; i++) {
+    const promo = filtered[i];
+    const li = document.createElement("li");
+    li.className = "combobox-option" + (i === promoHighlightIndex ? " active" : "");
+    li.setAttribute("role", "option");
+    li.dataset.id = promo.id;
+    li.dataset.index = String(i);
+    if (promo.id === selectedPromoId) li.setAttribute("aria-selected", "true");
+
+    const name = document.createElement("span");
+    name.textContent = promo.name || ("Promotion " + promo.id);
+    li.appendChild(name);
+
+    const id = document.createElement("span");
+    id.className = "id";
+    id.textContent = "#" + promo.id;
+    li.appendChild(id);
+
+    li.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      selectPromotion(promo);
+    });
+    list.appendChild(li);
+  }
+
+  if (filtered.length > max) {
+    const more = document.createElement("li");
+    more.className = "combobox-empty";
+    more.textContent = "Showing first " + max + " of " + filtered.length + " matches. Keep typing to narrow.";
+    list.appendChild(more);
+  }
+}
+
+function refreshPromoCombobox(opts = {}) {
+  const open = opts.open === true;
+  const query = $("#promo-search").value;
+  const filtered = filterPromotions(query);
+  if (promoHighlightIndex >= filtered.length) promoHighlightIndex = filtered.length - 1;
+  renderPromoList(filtered);
+  updatePromoMeta(filtered);
+  $("#promo-search").disabled = promotions.length === 0;
+  $("#reset-selection").disabled = !selectedPromoId;
+  $("#clear-promotions").disabled = promotions.length === 0;
+  updateLoadButtonLabel();
+  if (open && promotions.length) setPromoDropdownOpen(true);
+  updatePromotionDetails();
 }
 
 function describeError(err) {
@@ -711,10 +833,10 @@ async function loadCouponRows(file) {
 
 async function importCoupons() {
   const token = $("#token").value.trim();
-  const promoId = $("#promo-select").value.trim();
+  const promoId = selectedPromoId;
   const file = $("#coupon-csv").files[0];
   if (!token) { alert("Bearer token is required."); return; }
-  if (!promoId) { alert("Select a promotion first."); return; }
+  if (!promoId) { alert("Search and select a promotion first."); return; }
   if (!file) { alert("Select a CSV file to import."); return; }
 
   isImporting = true;
@@ -882,20 +1004,38 @@ async function loadPromotions() {
   const token = $("#token").value.trim();
   if (!token) { alert("Bearer token is required."); return; }
 
+  const isReload = promotions.length > 0 || !!selectedPromoId;
+  if (isReload) {
+    const msg = selectedPromoId
+      ? "Reloading promotions will clear your current selection and fetch a fresh list from Thinkific. Continue?"
+      : "Reload promotions from Thinkific? This replaces the current list.";
+    if (!confirm(msg)) return;
+  }
+
   $("#load-promotions").disabled = true;
   $("#clear-promotions").disabled = true;
-  $("#promo-search").value = "";
-  $("#log").textContent = "";
-  setStatus("Starting...");
+  $("#reset-selection").disabled = true;
+  if (isReload) {
+    resetPromotionSelection({ silent: true });
+    log("Reloading promotions — selection cleared.");
+  } else {
+    selectedPromoId = "";
+    $("#promo-search").value = "";
+    setPromoDropdownOpen(false);
+  }
+  $("#promo-search").disabled = true;
+  if (!isReload) $("#log").textContent = "";
+  else log("Fetching fresh promotions…");
+  setStatus(isReload ? "Reloading promotions…" : "Starting...");
   $("#bar").classList.add("indeterminate");
   setBar(0);
 
   try {
     const items = await fetchAllPromotions(token);
     promotions = normalizePromotions(items).sort((a, b) => a.name.localeCompare(b.name));
-    renderPromotionOptions();
-    $("#clear-promotions").disabled = promotions.length === 0;
-    setStatus(promotions.length ? "Ready. Promotions loaded." : "No promotions found.");
+    refreshPromoCombobox();
+    setStatus(promotions.length ? "Ready. Search and select a promotion." : "No promotions found.");
+    log((isReload ? "Reloaded " : "Loaded ") + promotions.length + " promotions.");
     setBar(100);
   } catch (err) {
     console.error(err);
@@ -903,21 +1043,97 @@ async function loadPromotions() {
     log("Error: " + err.message);
   } finally {
     $("#load-promotions").disabled = false;
+    $("#clear-promotions").disabled = promotions.length === 0;
+    $("#reset-selection").disabled = !selectedPromoId;
+    updateLoadButtonLabel();
   }
 }
 
 function clearPromotions() {
+  if (promotions.length || selectedPromoId) {
+    const msg = selectedPromoId
+      ? "Clear the promotion list and reset your selection?"
+      : "Clear the loaded promotion list?";
+    if (!confirm(msg)) return;
+  }
   promotions = [];
-  $("#promo-search").value = "";
-  renderPromotionOptions();
-  setStatus("Cleared.");
+  resetPromotionSelection({ silent: true });
+  $("#promo-search").disabled = true;
+  setStatus("Promotion list cleared.");
   setBar(0);
   $("#clear-promotions").disabled = true;
+  $("#reset-selection").disabled = true;
+  updateLoadButtonLabel();
+  log("Promotion list cleared.");
 }
 
-$("#promo-search").addEventListener("input", renderPromotionOptions);
-$("#promo-select").addEventListener("change", updatePromotionDetails);
+$("#promo-search").addEventListener("focus", () => {
+  if (!promotions.length) return;
+  promoHighlightIndex = -1;
+  refreshPromoCombobox({ open: true });
+});
+
+$("#promo-search").addEventListener("input", () => {
+  if (selectedPromoId) {
+    const selected = getSelectedPromo();
+    const currentLabel = selected ? buildOptionLabel(selected) : "";
+    if ($("#promo-search").value !== currentLabel) selectedPromoId = "";
+  }
+  promoHighlightIndex = 0;
+  refreshPromoCombobox({ open: true });
+});
+
+$("#promo-search").addEventListener("keydown", (e) => {
+  if (!promotions.length) return;
+  const filtered = filterPromotions($("#promo-search").value);
+  const open = $("#promo-combobox").classList.contains("open");
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (!open) refreshPromoCombobox({ open: true });
+    promoHighlightIndex = Math.min((promoHighlightIndex < 0 ? -1 : promoHighlightIndex) + 1, Math.min(filtered.length, 100) - 1);
+    renderPromoList(filtered);
+    return;
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!open) refreshPromoCombobox({ open: true });
+    promoHighlightIndex = Math.max((promoHighlightIndex < 0 ? 0 : promoHighlightIndex) - 1, 0);
+    renderPromoList(filtered);
+    return;
+  }
+  if (e.key === "Enter") {
+    if (!open || !filtered.length) return;
+    e.preventDefault();
+    const idx = promoHighlightIndex >= 0 ? promoHighlightIndex : 0;
+    const promo = filtered[idx];
+    if (promo) selectPromotion(promo);
+    return;
+  }
+  if (e.key === "Escape") {
+    setPromoDropdownOpen(false);
+    promoHighlightIndex = -1;
+  }
+});
+
+$("#promo-search").addEventListener("blur", () => {
+  setTimeout(() => setPromoDropdownOpen(false), 120);
+});
+
+document.addEventListener("click", (e) => {
+  const box = $("#promo-combobox");
+  if (box && !box.contains(e.target)) setPromoDropdownOpen(false);
+});
+
 $("#load-promotions").addEventListener("click", loadPromotions);
+$("#reset-selection").addEventListener("click", () => {
+  if (!selectedPromoId) return;
+  resetPromotionSelection();
+  if (promotions.length) {
+    $("#promo-search").focus();
+    refreshPromoCombobox({ open: true });
+  }
+});
 $("#clear-promotions").addEventListener("click", clearPromotions);
 $("#import-coupons").addEventListener("click", importCoupons);
 $("#download-failed").addEventListener("click", downloadFailedReport);
@@ -942,7 +1158,7 @@ if (saved) {
   log("Loaded saved API key from this device.");
 }
 
-renderPromotionOptions();
+refreshPromoCombobox();
 
 $("#save-token").addEventListener("click", () => {
   const token = $("#token").value.trim();
