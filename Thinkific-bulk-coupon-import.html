@@ -161,7 +161,7 @@
       <div id="log" class="log"></div>
 
       <p class="muted">
-        <span class="pill">CORS</span> This runs in the browser. If you see a CORS error, you will need to run a CLI variant.
+        <span class="pill">CORS</span> This runs in the browser. If you see a CORS error, you will need to run a CLI variant. Rate limiting uses <code>X-RateLimit-Remaining-Minute</code> / <code>RateLimit-Reset</code> when exposed, plus 429 / Retry-After, with pacing between creates.
       </p>
     </div>
   </div>
@@ -177,6 +177,9 @@ const API_ENDPOINT = "https://api.thinkific.com/api/public/v1/promotions";
 const COUPON_ENDPOINT = "https://api.thinkific.com/api/public/v1/coupons";
 const PAGE_LIMIT = 250;
 const RATE_LIMIT_WAIT_MS = 60 * 1000;
+const COOLDOWN_THRESHOLD = 5;
+// Thinkific public REST is ~120 req/min; keep creates under that even when headers are hidden by CORS.
+const REQUEST_GAP_MS = 550;
 const TOKEN_KEY = "thinkific-bulk-coupon-token";
 
 let promotions = [];
@@ -191,6 +194,9 @@ let isImporting = false;
 let lastCouponFileKey = "";
 let failedRows = [];
 let canDownloadFailed = false;
+let lastRateRemaining = null;
+let lastRateResetMs = NaN;
+let consecutive429 = 0;
 
 function normalizeDetailValue(value) {
   if (value === null || value === undefined) return "";
@@ -472,78 +478,131 @@ function getNextPage(pagination) {
   return Number.isFinite(num) && num > 0 ? num : null;
 }
 
-async function waitForRateLimit(resp, attempt) {
-  const retryAfter = Number(resp.headers.get("Retry-After") || "0");
-  const waitMs = Math.max(RATE_LIMIT_WAIT_MS, (retryAfter || 60) * 1000);
+function getHeader(resp, ...names) {
+  for (const name of names) {
+    const value = resp.headers.get(name);
+    if (value != null && value !== "") return value;
+  }
+  return "";
+}
+
+function updateRateLimitFromResponse(resp) {
+  const remainingStr = getHeader(resp, "x-ratelimit-remaining-minute", "X-RateLimit-Remaining-Minute");
+  const remaining = parseInt(remainingStr || "", 10);
+  const resetStr = getHeader(resp, "ratelimit-reset", "RateLimit-Reset");
+  const resetMs = parseInt(resetStr || "", 10);
+  if (Number.isFinite(remaining)) lastRateRemaining = remaining;
+  if (Number.isFinite(resetMs)) lastRateResetMs = resetMs;
+  return { remaining, resetMs };
+}
+
+function compute429WaitMs(resp, resetMs) {
+  const retryAfter = Number(getHeader(resp, "Retry-After", "retry-after") || "0");
+  if (Number.isFinite(resetMs) && resetMs > Date.now()) {
+    return Math.max(1000, Math.min(5 * 60 * 1000, resetMs - Date.now() + 500));
+  }
+  const retryMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 0;
+  // Back off further if we keep hitting 429 (headers often hidden by CORS).
+  const backoff = Math.min(5 * 60 * 1000, RATE_LIMIT_WAIT_MS * Math.max(1, consecutive429));
+  return Math.max(RATE_LIMIT_WAIT_MS, retryMs || backoff);
+}
+
+async function sleepInterruptible(ms) {
+  const end = Date.now() + Math.max(0, ms);
+  while (Date.now() < end) {
+    if (stopRequested) return false;
+    await sleep(Math.min(500, end - Date.now()));
+  }
+  return true;
+}
+
+async function maybeRateLimitCooldown(label) {
+  if (lastRateRemaining === null) return true;
+  if (lastRateRemaining >= COOLDOWN_THRESHOLD) return true;
+  if (!Number.isFinite(lastRateResetMs) || lastRateResetMs <= Date.now()) return true;
+  const waitMs = Math.max(0, lastRateResetMs - Date.now() + 500);
+  if (waitMs <= 0) return true;
   const secs = Math.ceil(waitMs / 1000);
-  setStatus("Rate limited (429). Waiting " + secs + "s… (attempt " + attempt + ")");
-  log("429 — waiting " + secs + "s, then retrying…");
+  setStatus("Rate limit low (remaining " + lastRateRemaining + "). Waiting " + secs + "s…");
+  log("Rate limit low (" + lastRateRemaining + "). Waiting " + secs + "s before " + (label || "next request") + "…");
   $("#bar").classList.add("indeterminate");
-  await sleep(waitMs);
+  const ok = await sleepInterruptible(waitMs);
+  lastRateRemaining = null;
+  return ok;
 }
 
-async function requestJson(url, token, attempt = 1) {
-  const resp = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Authorization": "Bearer " + token,
-      "Accept": "application/json"
+async function restRequest(method, url, token, body) {
+  for (;;) {
+    if (stopRequested) {
+      const err = new Error("Stopped by user.");
+      err.stopped = true;
+      throw err;
     }
-  });
 
-  if (resp.status === 429 && attempt <= 8) {
-    await waitForRateLimit(resp, attempt);
-    return requestJson(url, token, attempt + 1);
+    const cooled = await maybeRateLimitCooldown(method + " " + url);
+    if (!cooled || stopRequested) {
+      const err = new Error("Stopped by user.");
+      err.stopped = true;
+      throw err;
+    }
+
+    const headers = {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/json"
+    };
+    if (body != null) headers["Content-Type"] = "application/json";
+
+    const resp = await fetch(url, {
+      method,
+      headers,
+      body: body != null ? JSON.stringify(body) : undefined
+    });
+
+    const { resetMs } = updateRateLimitFromResponse(resp);
+
+    if (resp.status === 429) {
+      consecutive429 += 1;
+      const waitMs = compute429WaitMs(resp, resetMs);
+      const secs = Math.ceil(waitMs / 1000);
+      setStatus("Rate limited (429). Waiting " + secs + "s, then retrying same request…");
+      log("429 — waiting " + secs + "s (streak " + consecutive429 + "), then retrying…");
+      $("#bar").classList.add("indeterminate");
+      const ok = await sleepInterruptible(waitMs);
+      if (!ok || stopRequested) {
+        const err = new Error("Stopped by user.");
+        err.stopped = true;
+        throw err;
+      }
+      continue;
+    }
+
+    consecutive429 = 0;
+
+    let json = null;
+    try {
+      json = await resp.json();
+    } catch {
+      // ignore parse error
+    }
+
+    if (!resp.ok) {
+      const detail = json?.error || json?.message || json?.errors || resp.statusText;
+      const err = new Error("HTTP " + resp.status + " - " + (typeof detail === "string" ? detail : JSON.stringify(detail)));
+      err.status = resp.status;
+      err.body = json;
+      throw err;
+    }
+
+    return json;
   }
-
-  let json = null;
-  try {
-    json = await resp.json();
-  } catch {
-    // ignore parse error
-  }
-
-  if (!resp.ok) {
-    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
-    err.status = resp.status;
-    err.body = json;
-    throw err;
-  }
-
-  return json;
 }
 
-async function requestPostJson(url, token, body, attempt = 1) {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + token,
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+async function requestJson(url, token) {
+  return restRequest("GET", url, token, null);
+}
 
-  if (resp.status === 429 && attempt <= 8) {
-    await waitForRateLimit(resp, attempt);
-    return requestPostJson(url, token, body, attempt + 1);
-  }
-
-  let json = null;
-  try {
-    json = await resp.json();
-  } catch {
-    // ignore parse error
-  }
-
-  if (!resp.ok) {
-    const err = new Error("HTTP " + resp.status + " - " + resp.statusText);
-    err.status = resp.status;
-    err.body = json;
-    throw err;
-  }
-
-  return json;
+async function requestPostJson(url, token, body) {
+  return restRequest("POST", url, token, body);
 }
 
 function normalizePromotions(items) {
@@ -845,6 +904,9 @@ async function importCoupons() {
   canDownloadRemaining = false;
   failedRows = [];
   canDownloadFailed = false;
+  lastRateRemaining = null;
+  lastRateResetMs = NaN;
+  consecutive429 = 0;
   $("#import-coupons").disabled = true;
   updateImportLabel();
   $("#stop-import").disabled = false;
@@ -916,7 +978,20 @@ async function importCoupons() {
         row.status = "Created";
         created += 1;
         log("✅ Added coupon code: " + row.code);
+        if (REQUEST_GAP_MS > 0 && !stopRequested) {
+          await sleepInterruptible(REQUEST_GAP_MS);
+        }
       } catch (err) {
+        if (err && err.stopped) {
+          row.status = "Stopped";
+          for (let j = i + 1; j < rows.length; j++) {
+            if (rows[j].status === "Pending") rows[j].status = "Stopped";
+          }
+          remainingRows = rows.filter(r => r.status === "Pending" || r.status === "Stopped");
+          stopRequested = true;
+          log("⚠ Import stopped during rate-limit wait / request.");
+          break;
+        }
         row.status = "Error";
         failed += 1;
         const reason = describeError(err);
